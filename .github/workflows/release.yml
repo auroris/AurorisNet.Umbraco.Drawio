@@ -1,23 +1,30 @@
 name: Release
 
-run-name: Release ${{ inputs.version || format('(next {0})', inputs.bump) }}
+run-name: Release ${{ inputs.version || format('(next {0})', inputs.bump) }}${{ inputs.dry-run && ' (dry run)' || '' }}
 
+# Publishes both packages to nuget.org and GitHub. Starts by hand, or from the New Umbraco releases and CI workflows
+# when a new release of a dependency has passed the tests. The shared steps come from auroris/AurorisNet.Build, whose
+# docs/releasing.md describes them. nuget.org trusts this file by its name, so keep it release.yml.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version, such as 1.2.3 or 1.2.3-rc.1 (optional v prefix). Leave blank to bump the newest stable tag.'
+        description: Version to publish, such as 1.2.3 or 1.2.3-rc.1. Leave empty to raise the newest release tag.
         required: false
         type: string
       bump:
-        description: Which part of the newest stable tag to raise when the version is blank
+        description: Which part of the newest stable tag to raise when the version is empty
         type: choice
         default: patch
         options:
           - patch
           - minor
+      test:
+        description: Run the tests before publishing. The automated runs turn this off, because they have just run them.
+        type: boolean
+        default: true
       dry-run:
-        description: Build, test and pack only, and keep the package as an artifact
+        description: Test and pack only, and keep the packages as an artifact
         type: boolean
         default: false
       notes:
@@ -39,11 +46,11 @@ defaults:
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: '1'
   DOTNET_NOLOGO: '1'
-  PACKAGE_ID: AurorisNet.Umbraco.Drawio
+  TESTINGPLATFORM_TELEMETRY_OPTOUT: '1'
 
 jobs:
   release:
-    name: Build and publish
+    name: Test and publish
     # Linux checks out draw.io's files with their own line endings, so the package carries them byte for byte.
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -69,59 +76,21 @@ jobs:
 
       - name: Choose the version
         id: version
-        env:
-          RELEASE_VERSION: ${{ inputs.version }}
-          RELEASE_BUMP: ${{ inputs.bump || 'patch' }}
-          RELEASE_COMMIT: ${{ github.sha }}
-          REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
+        uses: auroris/AurorisNet.Build/actions/version@main
+        with:
+          version: ${{ inputs.version }}
+          bump: ${{ inputs.bump }}
+          dry-run: ${{ inputs.dry-run }}
+
+      # The site tests run on the newest supported Umbraco release. Other releases are tested on a developer's machine,
+      # as the README's Developing section describes.
+      - name: Test
+        if: ${{ inputs.test }}
         run: |
-          # Read the tags from GitHub, which needs no history in the shallow checkout.
-          $lines = @(git ls-remote --tags --refs $env:REPOSITORY_URL 'v*')
-          if ($LASTEXITCODE -ne 0) { throw 'Could not list the release tags.' }
-          $tags = @{}
-          foreach ($line in $lines) {
-            $sha, $ref = $line -split '\s+'
-            $tags[$ref.Substring('refs/tags/'.Length)] = $sha
-          }
-          $version = $env:RELEASE_VERSION.Trim()
-          if (-not $version) {
-            $latest = $tags.Keys | Where-Object { $_ -cmatch '\Av(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\z' } |
-              ForEach-Object { [version]$_.Substring(1) } | Sort-Object -Descending | Select-Object -First 1
-            if (-not $latest) { throw 'No stable vMAJOR.MINOR.PATCH tag exists to bump. Enter a version, such as 1.0.0.' }
-            $version = switch ($env:RELEASE_BUMP) {
-              'minor' { "$($latest.Major).$($latest.Minor + 1).0" }
-              'patch' { "$($latest.Major).$($latest.Minor).$($latest.Build + 1)" }
-              default { throw "Unknown bump '$($env:RELEASE_BUMP)'. Use patch or minor." }
-            }
-            Write-Host "Raising the $env:RELEASE_BUMP number of v$latest to v$version."
-          }
-          if ($version.StartsWith('v')) { $version = $version.Substring(1) }
-          $number = '(0|[1-9][0-9]*)'
-          $identifier = '(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
-          if ($version -cnotmatch "\A$number\.$number\.$number(-$identifier(\.$identifier)*)?\z") {
-            throw 'Use MAJOR.MINOR.PATCH, optionally followed by a prerelease such as -rc.1. Build metadata is not supported.'
-          }
-          foreach ($component in $version.Split('-', 2)[0].Split('.')) {
-            if ($component.Length -gt 5 -or [int]$component -gt 65534) { throw '.NET assembly version components must be between 0 and 65534.' }
-          }
-          $tag = "v$version"
-          # A tag on this commit is a retry of the same release; a tag elsewhere belongs to another release.
-          if ($tags.ContainsKey($tag) -and $tags[$tag] -ne $env:RELEASE_COMMIT) {
-            throw "Tag $tag already marks commit $($tags[$tag]). Choose a new version."
-          }
-          "version=$version" >> $env:GITHUB_OUTPUT
-          "tag=$tag" >> $env:GITHUB_OUTPUT
-          "tagged=$($tags.ContainsKey($tag).ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
-          "prerelease=$($version.Contains('-').ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
-
-      - name: Test backoffice adapters
-        run: node --test tests/backoffice/media-api.test.mjs
-
-      - name: Test Umbraco 17.0.0
-        run: dotnet test --project tests/AurorisNet.Umbraco.Drawio.Tests -c Release -p:UmbracoVersion=17.0.0
-
-      - name: Test default Umbraco version
-        run: dotnet test --project tests/AurorisNet.Umbraco.Drawio.Tests -c Release
+          node --test tests/backoffice/media-api.test.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'The backoffice adapter tests failed.' }
+          dotnet test --project tests/AurorisNet.Umbraco.Drawio.Tests -c Release
+          if ($LASTEXITCODE -ne 0) { throw 'The site tests failed.' }
 
       - name: Pack
         env:
@@ -133,71 +102,21 @@ jobs:
           }
           ./scripts/Test-Packages.ps1 -Version $env:RELEASE_VERSION
 
-      # A dry run ends here, with the package a release of this commit would publish. Nothing is tagged or published.
-      - name: Keep the package of a dry run
-        if: ${{ inputs.dry-run }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: package-${{ github.run_id }}
-          path: artifacts/packages/*.nupkg
-          if-no-files-found: error
-          retention-days: 7
-
-      # Reserve the tag before publishing, so a retried run finds it on this commit and reuses it.
-      - name: Reserve the release tag
-        if: ${{ !inputs.dry-run && steps.version.outputs.tagged != 'true' }}
+      # Name the draw.io release the Selfhosted package carries, above any notes from the run.
+      - name: Write the release notes
+        id: notes
         env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          RELEASE_COMMIT: ${{ github.sha }}
-        run: |
-          gh api --method POST "repos/$env:GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/$env:RELEASE_TAG" -f "sha=$env:RELEASE_COMMIT" | Out-Null
-          if ($LASTEXITCODE -ne 0) { throw "Could not reserve the release tag $env:RELEASE_TAG." }
-
-      - name: Log in to NuGet with trusted publishing
-        if: ${{ !inputs.dry-run }}
-        id: nuget-login
-        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
-        with:
-          user: AurorisNet
-
-      - name: Publish to NuGet
-        if: ${{ !inputs.dry-run }}
-        env:
-          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
-          RELEASE_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          foreach ($id in @($env:PACKAGE_ID, "$env:PACKAGE_ID.Selfhosted")) {
-            dotnet nuget push "artifacts/packages/$id.$env:RELEASE_VERSION.nupkg" `
-              --source https://api.nuget.org/v3/index.json --api-key "$env:NUGET_API_KEY" --skip-duplicate
-            if ($LASTEXITCODE -ne 0) { throw "Could not publish $id $env:RELEASE_VERSION to NuGet." }
-          }
-
-      - name: Publish the GitHub release
-        if: ${{ !inputs.dry-run }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_VERSION: ${{ steps.version.outputs.version }}
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          RELEASE_PRERELEASE: ${{ steps.version.outputs.prerelease }}
           RELEASE_NOTES: ${{ inputs.notes }}
         run: |
-          $packages = @("artifacts/packages/$env:PACKAGE_ID.$env:RELEASE_VERSION.nupkg",
-            "artifacts/packages/$env:PACKAGE_ID.Selfhosted.$env:RELEASE_VERSION.nupkg")
-          gh release view "$env:RELEASE_TAG" --json id 2>$null | Out-Null
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload "$env:RELEASE_TAG" @packages --clobber
-          } else {
-            # Name the draw.io release the package carries, above any notes from the run.
-            $drawio = (Get-Content external/drawio/VERSION -Raw).Trim()
-            $commit = git -C external/drawio rev-parse HEAD
-            $notes = "The Selfhosted package carries draw.io $drawio, commit [$($commit.Substring(0, 7))](https://github.com/jgraph/drawio/commit/$commit). The base package uses hosted diagrams.net."
-            if ($env:RELEASE_NOTES) { $notes = "$notes`n`n$env:RELEASE_NOTES" }
-            $notesFile = Join-Path $env:RUNNER_TEMP 'drawio-release-notes.md'
-            Set-Content -LiteralPath $notesFile -Value $notes -Encoding utf8
-            $create = @('release', 'create', $env:RELEASE_TAG) + $packages + @('--verify-tag', '--title', $env:RELEASE_VERSION,
-              '--generate-notes', '--notes-file', $notesFile)
-            if ($env:RELEASE_PRERELEASE -eq 'true') { $create += '--prerelease' }
-            gh @create
-          }
-          if ($LASTEXITCODE -ne 0) { throw "Could not publish the GitHub release $env:RELEASE_TAG." }
+          $drawio = (Get-Content external/drawio/VERSION -Raw).Trim()
+          $commit = git -C external/drawio rev-parse HEAD
+          $notes = "The Selfhosted package carries draw.io $drawio, commit [$($commit.Substring(0, 7))](https://github.com/jgraph/drawio/commit/$commit). The base package uses hosted diagrams.net."
+          if ($env:RELEASE_NOTES) { $notes = "$notes`n`n$env:RELEASE_NOTES" }
+          "notes<<END_OF_NOTES`n$notes`nEND_OF_NOTES" >> $env:GITHUB_OUTPUT
+
+      - name: Publish
+        uses: auroris/AurorisNet.Build/actions/publish@main
+        with:
+          versions: ${{ steps.version.outputs.versions }}
+          dry-run: ${{ inputs.dry-run }}
+          notes: ${{ steps.notes.outputs.notes }}

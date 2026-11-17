@@ -1,11 +1,13 @@
 <Project>
   <PropertyGroup>
+    <!-- The Umbraco releases the tests have run on: the first and the newest of each major version. The New Umbraco releases workflow adds each new release that passes. -->
+    <UmbracoReleases>17.0.0;17.8.2;18.0.0;18.3.2</UmbracoReleases>
     <!-- Compile against the first supported release; test compatibility with both Umbraco 17 and 18. -->
     <UmbracoMinimumVersion>17.0.0</UmbracoMinimumVersion>
     <!-- NuGet's dependency range stops before the next major version, which needs its own review. -->
     <UmbracoNextMajorVersion>19.0.0</UmbracoNextMajorVersion>
     <!-- Default test-site version. Override with -p:UmbracoVersion=17.0.0 for the minimum supported release. -->
-    <UmbracoVersion>18.3.1</UmbracoVersion>
+    <UmbracoVersion>18.3.2</UmbracoVersion>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

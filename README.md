@@ -1,133 +1,64 @@
 # draw.io for Umbraco
 
-Create, edit and view [draw.io](https://www.drawio.com) diagrams on an Umbraco 17 or 18 website.
-Backoffice diagrams are PNGs containing their editable drawings. Published blocks display the
-image and can open a viewer, follow an Umbraco link, or remain unlinked.
+Create, edit and view [draw.io](https://www.drawio.com) diagrams on an Umbraco website.
 
-## Packages
+![MIT license](https://raw.githubusercontent.com/auroris/AurorisNet.Build/main/badges/license-mit.svg)
+![.NET 10](https://raw.githubusercontent.com/auroris/AurorisNet.Build/main/badges/dotnet-10.svg)
+![Umbraco 17 and 18](https://raw.githubusercontent.com/auroris/AurorisNet.Build/main/badges/umbraco-17-18.svg)
 
-| Package | Editor source |
+The package adds three ways to work with diagrams:
+
+- **A backoffice editor.** A **Diagram** block for Block List and Block Grid opens draw.io,
+  and stores each diagram in the media library as a PNG that carries its editable drawing.
+- **A standalone editor** at `/draw/editor`, which opens a diagram file from the website and
+  downloads the result.
+- **A read-only viewer** at `/draw/viewer`, which published Diagram blocks can link to.
+
+The package also removes a diagram's media once no draft, published page or kept version
+uses it.
+
+| Package | Where the editor comes from |
 |---|---|
-| `AurorisNet.Umbraco.Drawio` | Hosted diagrams.net. `/draw/` opens `https://app.diagrams.net/`; embedded editors and viewers use `https://embed.diagrams.net/`. |
-| `AurorisNet.Umbraco.Drawio.Selfhosted` | Depends on the matching base package, bundles draw.io for local hosting and automatically selects the local editor for all three modes. |
+| `AurorisNet.Umbraco.Drawio` | Hosted diagrams.net: `/draw/` opens `https://app.diagrams.net/`, and the embedded editor and viewer load `https://embed.diagrams.net/`. |
+| `AurorisNet.Umbraco.Drawio.Selfhosted` | The website. The package depends on the same version of the base package, carries a draw.io distribution and serves it at `/draw/`. |
 
-Both target .NET 10 and Umbraco `[17.0.0, 19.0.0)`. Use a currently patched Umbraco 17 or 18 release.
-Umbraco 19 uses .NET 11 and is outside this package's supported range.
-The base package contains no draw.io distribution. Selfhosted carries draw.io 31.4.5, including
-its JavaScript, images, stencils, translations and notices, and copies it into
-`DrawioDistribution` on build and publish.
+## Install
 
-Install one of these:
+Add one of the two packages to a website that runs a supported Umbraco release:
 
-```xml
-<PackageReference Include="AurorisNet.Umbraco.Drawio" Version="1.*" />
-<!-- Or, to serve the editor locally: -->
-<PackageReference Include="AurorisNet.Umbraco.Drawio.Selfhosted" Version="1.*" />
+```powershell
+dotnet add package AurorisNet.Umbraco.Drawio
+# Or, to serve the editor from the website:
+dotnet add package AurorisNet.Umbraco.Drawio.Selfhosted
 ```
 
-Umbraco discovers the composers automatically. A manually composed site calls
-`builder.AddDrawio()` and includes the Selfhosted composer when using that package.
-Hosted mode needs browser access to diagrams.net and a Content Security Policy allowing frames
-from `https://embed.diagrams.net`. Diagram data is passed to that editor in the browser;
-backoffice media is stored by the Umbraco website.
+Each package registers itself through an Umbraco composer. A site that builds its services
+by hand calls `builder.AddDrawio()`; a second call changes nothing. On the first start, a
+package migration creates the Diagram element type and its data types, which
+**Backoffice diagrams** below describes.
 
-## Three modes
+With the base package, browsers need access to diagrams.net, and a Content Security Policy
+on the site must allow frames from `https://embed.diagrams.net`. The diagram is sent to that
+frame in the browser. Media stays in the website's media library.
 
-All paths include the site's path base when deployed under an IIS application.
+## Settings
 
-### Standalone editor
+The `Drawio` section is optional. The site checks it at startup and stops with a message
+that names each invalid value.
 
-Open `/draw/editor?url=/media/example/plan.drawio` to edit a website diagram without a backoffice
-session. Omit `url` to start a blank diagram. Save downloads a `.drawio` file; it does not write
-back to the website. `/draw/` opens the full draw.io application.
-
-Sources can be `.drawio`, draw.io XML, editable PNG or editable SVG. Ordinary PNG, SVG, JPEG,
-GIF and WebP images open as a single picture; their shapes cannot be recovered for editing.
-Source URLs must be on this website and files at most 40 MiB. Site-relative Umbraco media is read
-through the package's media proxy. External URLs, including separate CDN hosts, are not supported
-as standalone/viewer sources.
-
-### Backoffice integration
-
-On first installation the package creates these definitions in the **Diagrams** folder:
-
-- **Diagram (editable PNG)**: a single-image media picker with Create/Edit diagram buttons.
-- **Diagram** (`drawioDiagram`): image, caption, alternative text, click action and destination link.
-- **Diagram click action** and **Diagram destination** data types.
-
-Add the Diagram element type to a Block List or Block Grid data type. Create a block, draw and
-save. The editor uploads an editable PNG through Umbraco's authenticated media API and selects
-it in the block. Each save creates a new media item beside the previous one, so changing a draft
-does not replace the image on the published page. Standard content and media permissions apply.
-
-The Diagram (editable PNG) data type can also be used on your own content types. Keep the
-original PNG bytes intact: image optimisation that strips drawing metadata prevents reopening
-it. The editor always reads the original file.
-
-### Read-only viewer and block links
-
-Open `/draw/viewer?url=/media/example/plan.drawio` to view a website diagram. It supports the
-same source formats as the standalone editor, with zoom, pages, layers and diagram links.
-
-New blocks explicitly select **Open diagram viewer**:
-
-| Click action | Published result |
-|---|---|
-| Open diagram viewer | Opens the read-only viewer in a new tab. |
-| Follow link below | Uses Umbraco's link picker for a content page, media or URL, including the link's target. Clearing the link produces an unlinked image. |
-| No link | Shows just the image and optional caption. |
-
-A missing or unknown click-action value produces an unlinked image.
-
-## Media retention
-
-A **Retained diagram media** relation connects a page to each package-created diagram needed
-by its current draft, published content or retained history. Umbraco's reference readers handle
-nested blocks and diagrams reused in other supported property editors. Relations use Umbraco's
-existing table; there is no separate version ledger or cleanup schedule.
-
-When Umbraco removes historical versions, the package reconciles the affected pages' relations
-against the remaining versions. After permanent page deletion it checks that page's diagrams,
-including those referenced by descendants. A diagram becomes eligible only after successful
-deletion and when no retention or other incoming relation remains.
-
-Moving a page to the content recycle bin preserves its diagrams. Protected historical versions
-also retain them. By default, eligible media items and underlying files are permanently deleted
-through Umbraco's media service.
-
-Cleanup applies to editor-created PNGs named `diagram-<media key>.png`. Ordinary uploads are
-left alone. A diagram uploaded during an edit abandoned before saving the page has no page
-relation and is outside this lifecycle cleanup.
-
-`Drawio:SupersededImages` controls removal: `Delete` (default), `RecycleBin` or `Keep`. All retain
-references until the relevant history is removed. Recycling keeps media recoverable and does
-not reclaim its file storage. Failed or cancelled cleanup is logged; it does not undo an already
-committed content deletion.
-
-## Settings and local extensions
-
-The optional `Drawio` configuration section supports:
-
-| Setting | Default | Purpose |
+| Setting | Default | What it does |
 |---|---|---|
-| `WebRoot` | empty | Local draw.io web-app folder, absolute or relative to the content root. Setting it selects self-hosting with either package. |
-| `RedirectMediaFiles` | `true` | Redirect `.drawio` media links into the standalone editor. |
-| `SupersededImages` | `Delete` | Delete, recycle or keep media once its final retained reference disappears. |
-| `DefaultLibraries` | empty | Semicolon-separated shape libraries; empty keeps draw.io's defaults. |
-| `LibraryGroup` | `Extra shapes` | Sidebar heading for configured libraries. |
-| `Libraries` | empty | Objects with `Id`, `Title`, optional `Description`, and site-relative `Url`. |
-| `Plugins` | empty | Local-editor plugins with `Name` and site-relative `Url`. |
+| `WebRoot` | empty | A folder that holds a draw.io web app, absolute or relative to the content root. The site serves it at `/draw/`, with either package. |
+| `RedirectMediaFiles` | `true` | Redirects a request for `/media/…/*.drawio` to `/draw/editor?url=…`, so a link to the file opens it in the editor. |
+| `SupersededImages` | `Delete` | What happens to a diagram's media once nothing refers to it: `Delete`, `RecycleBin` or `Keep`, as **Media retention** below describes. |
+| `DefaultLibraries` | empty | The shape libraries the editor opens, separated by semicolons, such as `general;uml;flowchart`. Empty keeps draw.io's own set. |
+| `LibraryGroup` | `Extra shapes` | The sidebar heading for `Libraries`. |
+| `Libraries` | empty | Extra shape libraries the editor opens with the default ones. Each has an `Id`, a `Title`, an optional `Description` and a `Url`. |
+| `Plugins` | empty | draw.io plugins for a self-hosted editor. Each has a `Name` and a `Url`. |
 
-Selfhosted selects `DrawioDistribution` when `WebRoot` is empty. A missing local distribution
-returns 503 and never falls back to hosted diagrams.net. To use a separate folder without
-copying the bundle, set `WebRoot` and `<DrawioBundle>false</DrawioBundle>` in the site's project.
-[IIS deployment](https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/docs/IIS-DEPLOYMENT.md)
-also covers serving the assets from a virtual directory.
-
-Local `PreConfig.js` and `PostConfig.js` disable cloud storage, remote exports and icon search.
-Configured plugins must be trusted site scripts. `IDrawioScriptContributor` can append script
-to either configuration stage. Plugins and script contributors require self-hosting. Custom
-libraries in hosted mode must be reachable by the hosted frame with appropriate CORS headers.
+An `Id` or `Name` holds up to 64 letters, digits, `-` or `_`, and appears once. A `Url` is a
+path on the website, such as `/App_Plugins/MySite/icons.xml`. The editor loads these files
+into its own page, so the site refuses an address on another host.
 
 ```json
 {
@@ -143,51 +74,208 @@ libraries in hosted mode must be reachable by the hosted frame with appropriate 
 }
 ```
 
-The package compiles `Views/Partials/Drawio/Diagram.cshtml` and the corresponding
-`blocklist/Components/drawioDiagram.cshtml` and `blockgrid/Components/drawioDiagram.cshtml`
-partials. Override them by placing files at the same paths in the site. The shared partial
-accepts an `IPublishedElement` with the block's properties. Alternative text falls back to the
-caption, then the `Drawio.OpenDiagram` dictionary item ("Open diagram" when untranslated).
+## Where the editor comes from
 
-## Developing and releasing
+| Installed | `WebRoot` | `/draw/` serves |
+|---|---|---|
+| Base package | empty | Hosted diagrams.net |
+| Selfhosted package | empty | The bundled distribution, which the build copies to `DrawioDistribution` in the site's output and publish folders |
+| Either package | set | The folder `WebRoot` names |
 
-The base package builds without the draw.io submodule. Building Selfhosted needs the pinned
-`external/drawio` submodule. Keep its original line endings when checking it out. The backoffice
-adapter tests use Node.js 22 or later and its built-in test runner; no npm packages are needed.
+A self-hosted site always uses its local editor. When the folder is missing, requests for
+the editor's files answer 503, and the log names a missing `WebRoot` folder.
+
+To serve a folder of your own with the Selfhosted package installed, set `WebRoot` and add
+`<DrawioBundle>false</DrawioBundle>` to the site's project, which leaves the bundled copy
+out of the build. The
+[IIS guide](https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/docs/IIS-DEPLOYMENT.md)
+serves the folder from an IIS virtual directory.
+
+For a self-hosted editor, the site answers `/draw/js/PreConfig.js` and
+`/draw/js/PostConfig.js` itself. The scripts turn off draw.io's export server, its hosted
+viewer and its icon search, then apply the libraries and plugins from the settings. To add
+script of your own, register an `IDrawioScriptContributor` as a service: its `PreConfig`
+runs before draw.io starts and its `PostConfig` before the editor opens.
+
+Hosted diagrams.net loads neither plugins nor contributed script. It receives the
+configured libraries and fetches each from the website, so the website must allow
+`https://embed.diagrams.net` to read them with CORS headers.
+
+## Standalone editor
+
+`/draw/editor?url=/media/example/plan.drawio` opens a file from the website in the editor,
+without a backoffice sign-in. Leave out `url` to start an empty diagram. **Save** downloads a
+`.drawio` file and leaves the file on the website as it is. `/draw/` opens the full draw.io
+application.
+
+| Source | Opens as |
+|---|---|
+| `.drawio` or `.xml` with a draw.io diagram | The diagram |
+| A PNG or SVG that carries a diagram | The diagram |
+| Any other PNG, SVG, JPEG, GIF or WebP | One picture on an empty page |
+
+The file must be on the same website and at most 40 MiB. The editor reads `.drawio`,
+`.xml`, `.svg` and `.png` files under `/media/` through `/draw/proxy`, which returns them
+from Umbraco's media file system, so media in remote storage opens too. The proxy accepts
+paths inside the media store only.
+
+All paths include the site's path base under an IIS application, such as
+`/intranet/draw/editor`.
+
+## Backoffice diagrams
+
+The migration creates these in a **Diagrams** folder. It runs once, so a site can rename,
+change or delete them afterwards:
+
+| Definition | Purpose |
+|---|---|
+| **Diagram** element type (`drawioDiagram`) | A block with a diagram, a caption, an alternative text, a click action and a link. |
+| **Diagram (editable PNG)** data type | A picker for one image, with a **Create diagram** or **Edit diagram** button. |
+| **Diagram click action** and **Diagram destination** data types | The block's click action and link. |
+
+To use it:
+
+1. Add the **Diagram** element type to a Block List or Block Grid data type.
+2. In a page, add a Diagram block and select **Create diagram**.
+3. Draw, then save in draw.io. The editor uploads the diagram as a PNG named
+   `diagram-<key>.png` through Umbraco's management API, with the signed-in user's media
+   permissions, and selects it in the block.
+
+Each save creates a new media item, in the folder and with the name of the one before it.
+The earlier item stays, so the published page keeps its image until the page is published
+again.
+
+The **Diagram (editable PNG)** data type also works on your own content types. The editor
+reopens the original PNG file, so keep that file as it was saved: image optimisation that
+strips its metadata removes the drawing.
+
+## Viewer and click actions
+
+`/draw/viewer?url=/media/example/plan.drawio` shows a file from the website read-only, with
+zoom, page and layer controls. It opens the same sources as the standalone editor.
+
+A published Diagram block shows the image and its caption. The block's click action decides
+what selecting the image does:
+
+| Click action | Published result |
+|---|---|
+| **Open diagram viewer** | Opens the viewer in a new tab. New blocks start with this action. |
+| **Follow link below** | Follows the block's link to a content page, a media item or a URL, with the link's target. Without a link, the image is unlinked. |
+| **No link** | Shows the image unlinked. |
+
+A block without a click action shows the image unlinked. The block renders a link only to a
+path on the website, an anchor, or an `http`, `https`, `mailto` or `tel` address.
+
+The package compiles three views: `Views/Partials/Drawio/Diagram.cshtml`, and
+`drawioDiagram.cshtml` under `Views/Partials/blocklist/Components` and
+`Views/Partials/blockgrid/Components`. A file at the same path in the site replaces one.
+The image's alternative text is the block's alternative text, then its caption, then the
+`Drawio.OpenDiagram` dictionary item, which reads "Open diagram" until it is translated.
+
+## Media retention
+
+A **Retained diagram media** relation links a page to each editor-created diagram that its
+draft, its published content or one of its kept versions uses. The package adds the
+relations when a page is saved or published. They also cover diagrams inside nested blocks
+and in other property editors that report their media references to Umbraco.
+
+The package checks the relations again at two moments:
+
+- **Umbraco deletes versions of a page.** The package removes the relations that no
+  remaining version needs.
+- **A page is deleted permanently.** The package checks the diagrams of that page and its
+  descendants once the deletion has committed.
+
+A diagram whose last relation of any kind is gone is removed as `SupersededImages` says:
+
+| Value | Result |
+|---|---|
+| `Delete` | Deletes the media item and its file. |
+| `RecycleBin` | Moves the media item to the media recycle bin. Its file stays in storage. |
+| `Keep` | Leaves the media item in the library. |
+
+Moving a page to the content recycle bin keeps its diagrams, and so does a version that
+Umbraco keeps. The package removes only images named `diagram-<media key>.png`, the name
+the editor gives them, and leaves other uploads alone. A diagram saved in the editor for a
+page that is then never saved has no relation, so it stays in the media library. A cleanup
+that fails or that a notification handler cancels is logged, and the content deletion
+stands.
+
+## Supported versions
+
+| Umbraco | Supported releases | Runtime |
+|---|---|---|
+| 18 | <!-- umbraco-releases 18 -->18.0.0 to 18.3.2<!-- /umbraco-releases --> | .NET 10 |
+| 17 | <!-- umbraco-releases 17 -->17.0.0 to 17.8.2<!-- /umbraco-releases --> | .NET 10 |
+
+The package accepts every release in these ranges, and the tests run on the first and the
+newest release of each major version.
+
+## Documentation
+
+| Page | Covers |
+|---|---|
+| [IIS virtual directory](https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/docs/IIS-DEPLOYMENT.md) | Serving the draw.io web app from an IIS virtual directory at `/draw`, and checking the deployment. |
+| [Third-party notices](https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/THIRD-PARTY-NOTICES.md) | The draw.io release the Selfhosted package carries, and its license. |
+| [Security policy](https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/SECURITY.md) | Reporting a vulnerability. |
+
+## Developing
+
+Building needs the .NET 10 SDK, which `global.json` selects. The Selfhosted project also
+needs the `external/drawio` submodule, and the backoffice adapter tests need Node.js. They
+use its built-in test runner and no npm packages.
 
 ```powershell
 git submodule update --init --depth 1
 dotnet build -c Release
+# The backoffice media adapters
 node --test tests/backoffice/media-api.test.mjs
-dotnet test --project tests/AurorisNet.Umbraco.Drawio.Tests -c Release -p:UmbracoVersion=17.0.0
+# The tests on the newest supported Umbraco release
 dotnet test --project tests/AurorisNet.Umbraco.Drawio.Tests -c Release
+# The tests on another release
+dotnet test --project tests/AurorisNet.Umbraco.Drawio.Tests -c Release -p:UmbracoVersion=17.0.0
+# Both packages, numbered 0.0.0-dev, then a check of their contents and dependencies
 dotnet pack src/AurorisNet.Umbraco.Drawio.csproj -c Release -o artifacts/packages
 dotnet pack selfhosted/AurorisNet.Umbraco.Drawio.Selfhosted.csproj -c Release -o artifacts/packages
+pwsh scripts/Test-Packages.ps1 -Version 0.0.0-dev
 ```
 
-CI runs the full suite against Umbraco 17.0.0 and 18.3.1 on Windows and Linux, tests the backoffice
-media adapters with Node.js, and packs both packages.
-The Release workflow tests both versions, uses one package version
-for both packages and publishes the base first. **dry-run** keeps both `.nupkg` files without
-tagging or publishing. NuGet trusted publishing must authorise both package IDs for owner
-`auroris`, repository `AurorisNet.Umbraco.Drawio`, workflow `release.yml`, under the `AurorisNet`
-NuGet account.
+The full test matrix is the test command run once for each release in `UmbracoReleases` in
+`Directory.Build.props`. It runs on a developer's machine. The workflows test one release.
 
-`Compatibility/IUmbracoApi` isolates the CMS operations used by the package: content history,
-relations, media removal and file access, and published block data. The running CMS major version
-selects `Umbraco17Api` or `Umbraco18Api`. Backoffice editing and previews likewise use a selected
-media adapter for reads, uploads, image creation and picker values. Shared calls stay in common
-implementations; version-specific differences belong in the corresponding adapter. Notification,
-migration and Razor entry points remain thin CMS integration points. A new CMS major requires an
-explicit adapter and tests; it never silently uses the preceding version's implementation.
+The calls that differ between Umbraco major versions sit behind adapters. On the server,
+`src/Compatibility/IUmbracoApi.cs` has an implementation for each major version, and the
+running version selects one. In the backoffice,
+`src/wwwroot/App_Plugins/AurorisNet.Drawio/compatibility/umbraco-media-api.js` does the same
+for media calls. A new major version
+needs an adapter of its own in both places: the package refuses to run on a major version
+it has none for.
 
-Before publishing, check hosted and local editing in a browser: create, save, reopen and publish
-a block; exercise every destination; open editable PNG, SVG and `.drawio` sources in standalone
-editing and viewing. Check a published site's output as well as project references. When updating
-draw.io, update its submodule and
-[third-party notices](https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/THIRD-PARTY-NOTICES.md).
+The tests open no browser. After a change to the editor scripts, check by hand, with the
+hosted and the self-hosted editor: create, save, reopen and publish a block, try each click
+action, and open a PNG, an SVG and a `.drawio` file in the standalone editor and the viewer.
+
+To move to a newer draw.io, update the `external/drawio` submodule and the release and
+commit in `THIRD-PARTY-NOTICES.md`.
+
+## Releases
+
+The package follows Umbraco. Each day, `umbraco-releases.yml` looks on nuget.org for new
+Umbraco releases and tests the package on each one. A release that passes is committed to
+`UmbracoReleases` in `Directory.Build.props`, which also rewrites the ranges under
+**Supported versions**, and `release.yml` then publishes a new version of both packages. A
+release that fails gets an issue.
+
+Versions are numbered MAJOR.MINOR.PATCH, and both packages share one version. A new Umbraco
+release raises the patch number, or the minor number when it is a new Umbraco minor version.
+A person starts the first release by hand, with a version, and starts a release after
+updating the draw.io submodule. The
+[release guide](https://github.com/auroris/AurorisNet.Build/blob/main/docs/releasing.md)
+describes the workflows.
 
 ## License
 
-The integration is [MIT](https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/LICENSE).
-Selfhosted includes draw.io under Apache License 2.0, its `DRAWIO-LICENSE.txt` and upstream notices.
+[MIT](https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/LICENSE). The Selfhosted
+package also carries draw.io under the Apache License 2.0, as the
+[third-party notices](https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/THIRD-PARTY-NOTICES.md)
+describe.
