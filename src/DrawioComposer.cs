@@ -1,10 +1,10 @@
 using Drawio.Migrations;
+using Drawio.Compatibility;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
-using Umbraco.Cms.Core.Notifications;
 using Umbraco.Cms.Web.Common.ApplicationBuilder;
 using Umbraco.Extensions;
 
@@ -33,10 +33,7 @@ public static class DrawioBuilderExtensions
         builder.Services.Configure<UmbracoPipelineOptions>(options =>
             options.AddFilter(new UmbracoPipelineFilter("Drawio") { PrePipeline = DrawioHosting.Use }));
         builder.Services.AddTransient<DiagramMediaRetention>();
-        builder.AddNotificationHandler<ContentSavedNotification, DiagramMediaRetention>();
-        builder.AddNotificationHandler<ContentPublishedNotification, DiagramMediaRetention>();
-        builder.AddNotificationHandler<ContentDeletedVersionsNotification, DiagramMediaRetention>();
-        builder.AddNotificationHandler<ContentDeletingNotification, DiagramMediaRetention>();
+        UmbracoCompatibility.Register(builder);
         builder.PackageMigrationPlans().Add<DrawioMigrationPlan>();
         return builder;
     }

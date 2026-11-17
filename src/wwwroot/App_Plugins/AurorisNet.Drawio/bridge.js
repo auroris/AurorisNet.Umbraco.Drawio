@@ -5,10 +5,13 @@ export function readMessage(event, source, origin) {
     try { return JSON.parse(event.data); } catch { return; }
 }
 export function send(target, message, origin) { target.postMessage(JSON.stringify(message), origin); }
-export async function editorSettings(viewer = false) {
+export async function siteSettings() {
     const response = await fetch(new URL('../../draw/settings', import.meta.url));
     if (!response.ok) throw Error('Cannot load the diagram editor settings.');
-    const settings = await response.json();
+    return response.json();
+}
+export async function editorSettings(viewer = false) {
+    const settings = await siteSettings();
     const url = new URL(settings.editorUrl, location.href);
     for (const [key, value] of Object.entries({embed:1, proto:'json', spin:1, configure:1, libraries:1})) url.searchParams.set(key, value);
     if (viewer) { url.searchParams.set('lightbox', '1'); url.searchParams.set('layers', '1'); url.searchParams.set('nav', '1'); }

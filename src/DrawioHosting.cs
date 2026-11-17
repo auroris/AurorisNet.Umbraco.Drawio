@@ -9,7 +9,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Umbraco.Cms.Core.IO;
+using Drawio.Compatibility;
 
 namespace Drawio;
 
@@ -97,6 +97,7 @@ internal static class DrawioHosting
                     await context.Response.WriteAsJsonAsync(new
                     {
                         editorUrl = options.IsSelfHosted ? site + DrawioPaths.Editor + "/" : "https://embed.diagrams.net/",
+                        umbracoMajor = context.RequestServices.GetRequiredService<IUmbracoApi>().MajorVersion,
                         configuration = JsonSerializer.Deserialize<JsonElement>(DrawioScripts.Configuration(new(site, options)))
                     }, context.RequestAborted);
                     return;
@@ -176,14 +177,13 @@ internal static class DrawioHosting
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             return;
         }
-        var media = context.RequestServices.GetRequiredService<MediaFileManager>().FileSystem;
-        if (!media.FileExists(relative))
+        var media = context.RequestServices.GetRequiredService<IUmbracoApi>();
+        if (media.GetMediaFileSize(relative) is not { } size)
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
             return;
         }
         var encoded = context.Request.Query["base64"] == "1";
-        var size = media.GetSize(relative);
         if (encoded && size > DrawioPaths.MaxBase64Bytes)
         {
             context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
@@ -194,7 +194,7 @@ internal static class DrawioHosting
         context.Response.Headers.CacheControl = "no-cache";
         context.Response.ContentLength = encoded ? 4 * ((size + 2L) / 3L) : size;
         if (HttpMethods.IsHead(context.Request.Method)) return;
-        await using var input = media.OpenFile(relative);
+        await using var input = media.OpenMediaFile(relative);
         if (!encoded)
         {
             await input.CopyToAsync(context.Response.Body, context.RequestAborted);

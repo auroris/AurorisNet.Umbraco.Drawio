@@ -1,6 +1,6 @@
 # draw.io for Umbraco
 
-Create, edit and view [draw.io](https://www.drawio.com) diagrams on an Umbraco 18 website.
+Create, edit and view [draw.io](https://www.drawio.com) diagrams on an Umbraco 17 or 18 website.
 Backoffice diagrams are PNGs containing their editable drawings. Published blocks display the
 image and can open a viewer, follow an Umbraco link, or remain unlinked.
 
@@ -9,9 +9,10 @@ image and can open a viewer, follow an Umbraco link, or remain unlinked.
 | Package | Editor source |
 |---|---|
 | `AurorisNet.Umbraco.Drawio` | Hosted diagrams.net. `/draw/` opens `https://app.diagrams.net/`; embedded editors and viewers use `https://embed.diagrams.net/`. |
-| `AurorisNet.Umbraco.Drawio.Selfhosted` | Depends on the matching base package, bundles a pinned draw.io distribution and automatically selects the local editor for all three modes. |
+| `AurorisNet.Umbraco.Drawio.Selfhosted` | Depends on the matching base package, bundles draw.io for local hosting and automatically selects the local editor for all three modes. |
 
-Both target .NET 10 and Umbraco `[18.0.0, 19.0.0)`. Use a currently patched Umbraco 18 release.
+Both target .NET 10 and Umbraco `[17.0.0, 19.0.0)`. Use a currently patched Umbraco 17 or 18 release.
+Umbraco 19 uses .NET 11 and is outside this package's supported range.
 The base package contains no draw.io distribution. Selfhosted carries draw.io 31.4.5, including
 its JavaScript, images, stencils, translations and notices, and copies it into
 `DrawioDistribution` on build and publish.
@@ -32,7 +33,7 @@ backoffice media is stored by the Umbraco website.
 
 ## Three modes
 
-All paths include the site's path base when deployed under an IIS application such as `/intranet`.
+All paths include the site's path base when deployed under an IIS application.
 
 ### Standalone editor
 
@@ -151,21 +152,34 @@ caption, then the `Drawio.OpenDiagram` dictionary item ("Open diagram" when untr
 ## Developing and releasing
 
 The base package builds without the draw.io submodule. Building Selfhosted needs the pinned
-`external/drawio` submodule. Keep its original line endings when checking it out.
+`external/drawio` submodule. Keep its original line endings when checking it out. The backoffice
+adapter tests use Node.js 22 or later and its built-in test runner; no npm packages are needed.
 
 ```powershell
 git submodule update --init --depth 1
 dotnet build -c Release
+node --test tests/backoffice/media-api.test.mjs
+dotnet test --project tests/AurorisNet.Umbraco.Drawio.Tests -c Release -p:UmbracoVersion=17.0.0
 dotnet test --project tests/AurorisNet.Umbraco.Drawio.Tests -c Release
 dotnet pack src/AurorisNet.Umbraco.Drawio.csproj -c Release -o artifacts/packages
 dotnet pack selfhosted/AurorisNet.Umbraco.Drawio.Selfhosted.csproj -c Release -o artifacts/packages
 ```
 
-CI tests on Windows and Linux and packs both packages. The Release workflow uses one version
+CI runs the full suite against Umbraco 17.0.0 and 18.3.1 on Windows and Linux, tests the backoffice
+media adapters with Node.js, and packs both packages.
+The Release workflow tests both versions, uses one package version
 for both packages and publishes the base first. **dry-run** keeps both `.nupkg` files without
 tagging or publishing. NuGet trusted publishing must authorise both package IDs for owner
 `auroris`, repository `AurorisNet.Umbraco.Drawio`, workflow `release.yml`, under the `AurorisNet`
 NuGet account.
+
+`Compatibility/IUmbracoApi` isolates the CMS operations used by the package: content history,
+relations, media removal and file access, and published block data. The running CMS major version
+selects `Umbraco17Api` or `Umbraco18Api`. Backoffice editing and previews likewise use a selected
+media adapter for reads, uploads, image creation and picker values. Shared calls stay in common
+implementations; version-specific differences belong in the corresponding adapter. Notification,
+migration and Razor entry points remain thin CMS integration points. A new CMS major requires an
+explicit adapter and tests; it never silently uses the preceding version's implementation.
 
 Before publishing, check hosted and local editing in a browser: create, save, reopen and publish
 a block; exercise every destination; open editable PNG, SVG and `.drawio` sources in standalone

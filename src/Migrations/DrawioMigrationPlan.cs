@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Options;
-using Umbraco.Cms.Core;
-using Umbraco.Cms.Core.Models;
+using Microsoft.Extensions.DependencyInjection;
+using Drawio.Compatibility;
 using Umbraco.Cms.Core.Configuration.Models;
 using Umbraco.Cms.Core.IO;
 using Umbraco.Cms.Core.Packaging;
@@ -39,7 +39,7 @@ public sealed class ImportDiagramElementType(
     MediaUrlGeneratorCollection urlGenerators,
     IShortStringHelper shortStrings,
     IContentTypeBaseServiceProvider contentTypes,
-    IRelationService relations,
+    IServiceProvider services,
     IMigrationContext context,
     IOptions<PackageMigrationSettings> settings)
     : AsyncPackageMigrationBase(packaging, media, mediaFiles, urlGenerators, shortStrings, contentTypes, context, settings)
@@ -58,9 +58,7 @@ public sealed class ImportDiagramElementType(
     {
         // Umbraco finds package.xml in this types namespace.
         ImportPackage.FromEmbeddedResource<ImportDiagramElementType>().Do();
-        if (relations.GetRelationTypeByAlias(DiagramMediaRetention.RelationAlias) is null)
-            relations.Save(new RelationType("Retained diagram media", DiagramMediaRetention.RelationAlias, false,
-                Constants.ObjectTypes.Document, Constants.ObjectTypes.Media, true));
+        services.GetRequiredService<IUmbracoApi>().EnsureRetentionRelationType();
         return Task.CompletedTask;
     }
 }

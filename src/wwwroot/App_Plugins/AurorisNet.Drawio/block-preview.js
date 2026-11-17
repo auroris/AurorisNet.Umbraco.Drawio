@@ -1,6 +1,6 @@
 import { UmbLitElement } from '@umbraco-cms/backoffice/lit-element';
 import { html, css, nothing } from '@umbraco-cms/backoffice/external/lit';
-import { UmbMediaDetailRepository } from '@umbraco-cms/backoffice/media';
+import { mediaApi } from './compatibility/media-api.js';
 
 /**
  * The drawioDiagram block's preview in a Block Grid or Block List: the diagram's PNG and caption, so editors see the
@@ -8,7 +8,12 @@ import { UmbMediaDetailRepository } from '@umbraco-cms/backoffice/media';
  */
 export default class DiagramPreview extends UmbLitElement {
     static properties = Object.fromEntries(['content', 'config', 'label', 'icon', 'unpublished'].map(name => [name, { attribute: false }]));
-    #repository = new UmbMediaDetailRepository(this);
+    #api;
+    #apiError = false;
+    connectedCallback() {
+        super.connectedCallback();
+        mediaApi(this).then(api => { this.#api = api; this.requestUpdate(); }).catch(() => { this.#apiError = true; this.requestUpdate(); });
+    }
     #key;
     #url;
     async #load(key) {
@@ -16,20 +21,19 @@ export default class DiagramPreview extends UmbLitElement {
         this.#url = undefined;
         if (!key) return;
         try {
-            const { data } = await this.#repository.requestByUnique(key);
+            const media = await this.#api.readPreview(key);
             if (this.#key !== key) return;
-            let file = data?.values?.find(value => value.alias === 'umbracoFile')?.value;
-            if (typeof file === 'string' && file.trim().startsWith('{')) file = JSON.parse(file);
-            this.#url = typeof file === 'string' ? file : file?.src;
+            this.#url = media.url || null;
         } catch { this.#url = null; }
         this.requestUpdate();
     }
     render() {
         const image = this.content?.image;
-        const key = Array.isArray(image) ? image[0]?.mediaKey : image?.mediaKey;
+        const key = this.#api?.mediaKey(image);
         if (key !== this.#key) this.#load(key);
         const caption = this.content?.caption;
-        const body = !key ? html`<p class="note">Choose or create a diagram.</p>`
+        const body = !this.#api ? html`<p class="note">${this.#apiError ? 'The diagram is unavailable.' : 'Loading the diagram…'}</p>`
+            : !key ? html`<p class="note">Choose or create a diagram.</p>`
             : this.#url ? html`<img src=${this.#url} alt=${this.content?.altText || caption || ''}>`
             : html`<p class="note">${this.#url === null ? 'The diagram is unavailable.' : 'Loading the diagram…'}</p>`;
         const edit = this.config?.showContentEdit ? this.config.editContentPath : undefined;

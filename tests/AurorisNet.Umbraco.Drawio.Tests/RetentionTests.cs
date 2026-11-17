@@ -98,6 +98,34 @@ public sealed partial class SiteTests
         AssertMediaExists(ordinary);
     }
 
+    [Theory]
+    [InlineData(SupersededImageHandling.Keep)]
+    [InlineData(SupersededImageHandling.RecycleBin)]
+    public async Task The_media_adapter_honors_keep_and_recycle_options(SupersededImageHandling handling)
+    {
+        var settings = Site.Services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<DrawioOptions>>().CurrentValue;
+        var previous = settings.SupersededImages;
+        try
+        {
+            settings.SupersededImages = handling;
+            var page = await DiagramPage("retention" + handling);
+            var content = Site.Services.GetRequiredService<IContentService>();
+            var image = DiagramImage(); Pick(page, image); Assert.True(content.Save(page).Success);
+            Assert.True(content.Delete(page).Success);
+            var retained = Assert.IsAssignableFrom<IMedia>(Site.Services.GetRequiredService<IMediaService>().GetById(image.Key));
+            Assert.Equal(handling == SupersededImageHandling.RecycleBin, retained.Trashed);
+            // Newer CMS versions hide recycled files; restoring must recover the original bytes on both versions.
+            if (retained.Trashed)
+                Assert.True(Site.Services.GetRequiredService<IMediaService>().Move(retained, Constants.System.Root).Success);
+            AssertMediaExists(retained);
+            using var stream = Site.Services.GetRequiredService<MediaFileManager>().FileSystem.OpenFile(ImagePath(retained));
+            using var restored = new MemoryStream();
+            await stream.CopyToAsync(restored, Cancel);
+            Assert.Equal(Png, restored.ToArray());
+        }
+        finally { settings.SupersededImages = previous; }
+    }
+
     private async Task<IContent> DiagramPage(string alias)
     {
         var services = Site.Services;

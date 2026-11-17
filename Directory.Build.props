@@ -1,10 +1,10 @@
 <Project>
   <PropertyGroup>
-    <!-- The package compiles against the first Umbraco 18 release, so it runs on every 18.x site. -->
-    <UmbracoMinimumVersion>18.0.0</UmbracoMinimumVersion>
+    <!-- Compile against the first supported release; test compatibility with both Umbraco 17 and 18. -->
+    <UmbracoMinimumVersion>17.0.0</UmbracoMinimumVersion>
     <!-- NuGet's dependency range stops before the next major version, which needs its own review. -->
     <UmbracoNextMajorVersion>19.0.0</UmbracoNextMajorVersion>
-    <!-- The tests run a site on this release, the newest one checked. -->
+    <!-- Default test-site version. Override with -p:UmbracoVersion=17.0.0 for the minimum supported release. -->
     <UmbracoVersion>18.3.1</UmbracoVersion>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
