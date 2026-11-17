@@ -1,0 +1,3 @@
+@inherits UmbracoViewPage<BlockGridItem>
+@* The drawioDiagram element in a Block Grid. The shared partial holds the markup. *@
+@await Html.PartialAsync("~/Views/Partials/Drawio/Diagram.cshtml", Model.Content)

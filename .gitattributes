@@ -1,0 +1,4 @@
+# Store text files with LF line endings, whatever each contributor's Git settings.
+* text=auto eol=lf
+# The icon library and images are data; never normalize them.
+*.png binary

@@ -1,0 +1,42 @@
+@inherits UmbracoViewPage<IPublishedElement>
+@using Drawio
+@*
+    A diagram element: the PNG, its selected click action and its caption. The block views below render it, and a
+    site's own element type with an image, caption and altText property can render it too:
+    @await Html.PartialAsync("~/Views/Partials/Drawio/Diagram.cshtml", element)
+    Copy this file to the same path in the site to change the markup; the site's copy takes precedence.
+*@
+@{
+    var media = Model.Value<MediaWithCrops>("image");
+    var caption = Model.Value<string>("caption");
+    var language = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+    var label = Umbraco.GetDictionaryValueOrDefault("Drawio.OpenDiagram", "Open diagram");
+    var action = Model.HasValue("clickAction") ? (DiagramClickAction)Model.Value<int>("clickAction") : DiagramClickAction.None;
+    var link = Model.Value<Umbraco.Cms.Core.Models.Link>("link");
+    var viewer = Url.Content("~/draw/viewer?url=") + Uri.EscapeDataString(media?.MediaUrl() ?? "") + "&lang=" + Uri.EscapeDataString(language);
+    var href = action == DiagramClickAction.Viewer ? viewer : action == DiagramClickAction.Link ? link?.Url : null;
+    // Link picker values are editor input. Never render executable or protocol-relative URLs.
+    if (href is not null && !(href.StartsWith('/') && !href.StartsWith("//") && !href.Contains('\\'))
+        && !href.StartsWith('#') && !(Uri.TryCreate(href, UriKind.Absolute, out var absolute) && absolute.Scheme is "http" or "https" or "mailto" or "tel")) href = null;
+    var target = action == DiagramClickAction.Viewer ? "_blank" : link?.Target;
+    var alt = Model.Value<string>("altText");
+}
+@if (media is not null)
+{
+    <figure class="drawio-diagram">
+        @if (!string.IsNullOrWhiteSpace(href))
+        {
+        <a href="@href" target="@target" rel="@(target == "_blank" ? "noopener" : null)" aria-label="@(action == DiagramClickAction.Viewer ? label : link?.Name)">
+            <img src="@media.MediaUrl()" alt="@(string.IsNullOrWhiteSpace(alt) ? caption ?? label : alt)" loading="lazy" style="max-width:100%;height:auto" />
+        </a>
+        }
+        else
+        {
+            <img src="@media.MediaUrl()" alt="@(string.IsNullOrWhiteSpace(alt) ? caption ?? label : alt)" loading="lazy" style="max-width:100%;height:auto" />
+        }
+        @if (!string.IsNullOrWhiteSpace(caption))
+        {
+            <figcaption>@caption</figcaption>
+        }
+    </figure>
+}

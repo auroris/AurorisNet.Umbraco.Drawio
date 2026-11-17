@@ -1,0 +1,18 @@
+<Project>
+  <!--
+    Copies the draw.io web app the Selfhosted package carries into the site's output and publish folders as DrawioDistribution,
+    where the package serves it at /draw/. Nothing is downloaded.
+
+    Set DrawioBundle to false in the site's project when /draw comes from Drawio:WebRoot or an IIS virtual directory, so
+    the build leaves the copy out. The site's own setting is read first, because NuGet imports this file after the
+    project's body.
+  -->
+  <PropertyGroup>
+    <DrawioBundle Condition="'$(DrawioBundle)' == ''">true</DrawioBundle>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(DrawioBundle)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)..\drawio\**"
+          Link="DrawioDistribution\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" Pack="false" />
+  </ItemGroup>
+</Project>

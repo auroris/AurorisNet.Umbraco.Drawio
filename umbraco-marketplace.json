@@ -1,0 +1,8 @@
+{
+  "$schema": "https://marketplace.umbraco.com/umbraco-marketplace-schema.json",
+  "Category": "Editor Tools",
+  "LicenseTypes": ["Free"],
+  "PackageType": "Package",
+  "DocumentationUrl": "https://github.com/auroris/AurorisNet.Umbraco.Drawio#readme",
+  "IssueTrackerUrl": "https://github.com/auroris/AurorisNet.Umbraco.Drawio/issues"
+}

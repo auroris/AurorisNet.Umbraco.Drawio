@@ -1,0 +1,41 @@
+{
+  "id": "AurorisNet.Umbraco.Drawio",
+  "name": "draw.io for Umbraco",
+  "extensions": [
+    {
+      "type": "propertyEditorUi",
+      "alias": "AurorisNet.Drawio.ClickAction",
+      "name": "Diagram click action",
+      "element": "/App_Plugins/AurorisNet.Drawio/click-action.js",
+      "meta": { "label": "Diagram click action", "icon": "icon-link", "group": "common", "propertyEditorSchemaAlias": "Umbraco.Integer" }
+    },
+    {
+      "type": "propertyEditorUi",
+      "alias": "AurorisNet.Drawio.Editor",
+      "name": "Editable diagram PNG",
+      "element": "/App_Plugins/AurorisNet.Drawio/editor.js",
+      "meta": {
+        "label": "Diagram (draw.io)",
+        "icon": "icon-diagram",
+        "group": "media",
+        "propertyEditorSchemaAlias": "Umbraco.MediaPicker3"
+      }
+    },
+    {
+      "type": "blockEditorCustomView",
+      "alias": "AurorisNet.Drawio.Preview.Grid",
+      "name": "Diagram preview in a Block Grid",
+      "element": "/App_Plugins/AurorisNet.Drawio/block-preview.js",
+      "forContentTypeAlias": "drawioDiagram",
+      "forBlockEditor": "block-grid"
+    },
+    {
+      "type": "blockEditorCustomView",
+      "alias": "AurorisNet.Drawio.Preview.List",
+      "name": "Diagram preview in a Block List",
+      "element": "/App_Plugins/AurorisNet.Drawio/block-preview.js",
+      "forContentTypeAlias": "drawioDiagram",
+      "forBlockEditor": "block-list"
+    }
+  ]
+}

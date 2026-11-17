@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <!-- The package compiles against the first Umbraco 18 release, so it runs on every 18.x site. -->
+    <UmbracoMinimumVersion>18.0.0</UmbracoMinimumVersion>
+    <!-- NuGet's dependency range stops before the next major version, which needs its own review. -->
+    <UmbracoNextMajorVersion>19.0.0</UmbracoNextMajorVersion>
+    <!-- The tests run a site on this release, the newest one checked. -->
+    <UmbracoVersion>18.3.1</UmbracoVersion>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ContinuousIntegrationBuild)' == 'true'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1900;NU1901;NU1902;NU1903;NU1904;NU1905</WarningsNotAsErrors>
+  </PropertyGroup>
+</Project>

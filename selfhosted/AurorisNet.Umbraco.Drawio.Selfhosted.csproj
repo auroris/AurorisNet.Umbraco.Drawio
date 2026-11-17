@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>AurorisNet.Umbraco.Drawio.Selfhosted</PackageId>
+    <AssemblyName>Drawio.Selfhosted</AssemblyName>
+    <Version>0.0.0-dev</Version>
+    <Authors>Auroris</Authors>
+    <Description>Bundles the draw.io web app and automatically configures AurorisNet.Umbraco.Drawio to use it locally, including the editor, backoffice integration and viewer.</Description>
+    <PackageTags>umbraco;drawio;diagrams.net;offline;selfhosted</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageProjectUrl>https://github.com/auroris/AurorisNet.Umbraco.Drawio</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/auroris/AurorisNet.Umbraco.Drawio</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <DebugType>embedded</DebugType>
+    <NuGetAuditMode>direct</NuGetAuditMode>
+    <DrawioSource>$(MSBuildThisFileDirectory)..\external\drawio\</DrawioSource>
+    <DrawioWebApp>$(DrawioSource)src\main\webapp\</DrawioWebApp>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../src/AurorisNet.Umbraco.Drawio.csproj" />
+    <None Include="../README.md;../LICENSE;../THIRD-PARTY-NOTICES.md;../docs/images/icon.png" Pack="true" PackagePath="/" />
+    <None Include="build/AurorisNet.Umbraco.Drawio.Selfhosted.targets" Pack="true" PackagePath="build/;buildTransitive/" />
+    <None Include="$(DrawioWebApp)**" Exclude="$(DrawioWebApp)WEB-INF\**;$(DrawioWebApp)META-INF\**;$(DrawioWebApp)**\*.map"
+          Link="DrawioDistribution\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
+          Visible="false" Pack="true" PackagePath="drawio/" />
+    <None Include="$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)drawio\DRAWIO-LICENSE.txt" Link="DrawioDistribution\DRAWIO-LICENSE.txt"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" Pack="true" PackagePath="drawio/" />
+  </ItemGroup>
+  <Target Name="CheckDrawioSubmodule" BeforeTargets="PrepareForBuild;GenerateNuspec">
+    <Error Condition="!Exists('$(DrawioWebApp)index.html') or !Exists('$(DrawioSource)LICENSE')"
+           Text="Initialise the draw.io distribution: git submodule update --init --depth 1" />
+    <Copy SourceFiles="$(DrawioSource)LICENSE" DestinationFiles="$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)drawio\DRAWIO-LICENSE.txt" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="PinBasePackageVersion" AfterTargets="_GetProjectReferenceVersions">
+    <ItemGroup>
+      <_ProjectReferencesWithVersions Update="@(_ProjectReferencesWithVersions)" ProjectVersion="[$(Version)]" />
+    </ItemGroup>
+  </Target>
+</Project>

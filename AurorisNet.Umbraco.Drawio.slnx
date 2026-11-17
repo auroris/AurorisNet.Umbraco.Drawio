@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/AurorisNet.Umbraco.Drawio.csproj" />
+  <Project Path="selfhosted/AurorisNet.Umbraco.Drawio.Selfhosted.csproj" />
+  <Project Path="tests/AurorisNet.Umbraco.Drawio.Tests/AurorisNet.Umbraco.Drawio.Tests.csproj" />
+</Solution>

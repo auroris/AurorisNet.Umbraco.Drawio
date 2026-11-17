@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <PackageId>AurorisNet.Umbraco.Drawio</PackageId>
+    <AssemblyName>Drawio</AssemblyName>
+    <RootNamespace>Drawio</RootNamespace>
+    <Title>draw.io for Umbraco</Title>
+    <!-- Local builds use 0.0.0-dev; the release workflow supplies the published version. -->
+    <Version>0.0.0-dev</Version>
+    <Authors>Auroris</Authors>
+    <Description>Integrates diagrams.net with Umbraco 18: a standalone editor, backoffice diagram blocks, a read-only viewer, and media retention following content history. Uses hosted diagrams.net by default; add AurorisNet.Umbraco.Drawio.Selfhosted for an offline editor.</Description>
+    <PackageTags>umbraco;umbraco-marketplace;drawio;diagrams.net;diagram;backoffice</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageProjectUrl>https://github.com/auroris/AurorisNet.Umbraco.Drawio</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/auroris/AurorisNet.Umbraco.Drawio</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReleaseNotes>https://github.com/auroris/AurorisNet.Umbraco.Drawio/releases/tag/v$(Version)</PackageReleaseNotes>
+    <DebugType>embedded</DebugType>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <NuGetAuditMode>direct</NuGetAuditMode>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <!-- Serve wwwroot at the site root, so the backoffice finds App_Plugins/AurorisNet.Drawio/umbraco-package.json. -->
+    <StaticWebAssetBasePath>/</StaticWebAssetBasePath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);appsettings-schema*.json;umbraco-package-schema.json</DefaultItemExcludes>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Umbraco.Cms.Web.Website" />
+    <InternalsVisibleTo Include="AurorisNet.Umbraco.Drawio.Tests" />
+    <InternalsVisibleTo Include="Drawio.Selfhosted" />
+    <EmbeddedResource Include="Migrations\package.xml" LogicalName="Drawio.Migrations.package.xml" />
+    <!-- nuget.org renders the repository README as well, so it uses plain Markdown and absolute links. -->
+    <None Include="../README.md" Pack="true" PackagePath="/" />
+    <None Include="../docs/images/icon.png" Pack="true" PackagePath="/" />
+    <None Include="../LICENSE" Pack="true" PackagePath="/" />
+    <None Include="../THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+</Project>

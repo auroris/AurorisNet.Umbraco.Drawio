@@ -1,0 +1,5 @@
+[submodule "external/drawio"]
+	path = external/drawio
+	url = https://github.com/jgraph/drawio.git
+	shallow = true
+	branch = dev
