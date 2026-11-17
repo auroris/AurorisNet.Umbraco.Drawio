@@ -242,6 +242,7 @@ pwsh scripts/Test-Packages.ps1 -Version 0.0.0-dev
 
 The full test matrix is the test command run once for each release in `UmbracoReleases` in
 `Directory.Build.props`. It runs on a developer's machine. The workflows test one release.
+The workflows also turn build warnings into errors, so keep the build free of warnings.
 
 The calls that differ between Umbraco major versions sit behind adapters. On the server,
 `src/Compatibility/IUmbracoApi.cs` has an implementation for each major version, and the

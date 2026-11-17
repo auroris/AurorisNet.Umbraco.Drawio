@@ -1,25 +1,30 @@
 # IIS virtual directory
 
-These steps let IIS serve the draw.io web app from a virtual directory at `/draw`, while the
-Umbraco application answers the configuration scripts, settings, editor/viewer wrappers, media proxy and `.drawio` media
-links. The [README](https://github.com/auroris/AurorisNet.Umbraco.Drawio#settings-and-local-extensions) compares
-this setup with the bundled copy and a folder.
+These steps make IIS serve the draw.io web app from a virtual directory at `/draw`. IIS
+answers the app's static files, and the Umbraco application answers the configuration
+scripts, the settings, the editor and viewer pages, the media proxy and `.drawio` media
+links. [Where the editor comes from](../README.md#where-the-editor-comes-from) in the README
+lists the other ways to serve the editor.
 
 ## Set up the virtual directory
 
-1. Copy the draw.io web app into its own folder, such as `C:\inetpub\drawio`, with `index.html`
-   and `js/app.min.js` at its top level. A site's `DrawioDistribution` output folder holds the
-   release the package was tested with.
-2. Under the IIS site, add a **virtual directory** with the alias `Draw` that points to that
-   folder. It shares the site's application and application pool. Give the pool's identity read
-   access to the folder.
-3. Add the `Draw` location below to the site's `web.config`, beside the `location` that holds the
-   site's own `system.webServer` section, and add the URL Rewrite rule to that section's `rules`.
-4. Set `Drawio:WebRoot` to the folder from step 1. If the Selfhosted package is installed,
-   set `DrawioBundle` to `false` in the site's project to omit its bundled copy.
+1. Copy the draw.io web app into a folder of its own, such as `C:\inetpub\drawio`, with
+   `index.html` and `js/app.min.js` at its top level. The `DrawioDistribution` folder in the
+   output of a site that references the Selfhosted package holds the release that package
+   carries.
+2. Under the IIS site, add a **virtual directory** with the alias `Draw` that points to the
+   folder. It shares the site's application and application pool. Give the pool's identity
+   read access to the folder.
+3. Add the `Draw` location below to the site's `web.config`, beside the `location` that holds
+   the site's own `system.webServer` section.
+4. Add the URL Rewrite rule below to the `rules` of the site's own `system.webServer`
+   section.
+5. Set `Drawio:WebRoot` to the folder from step 1. With the Selfhosted package installed,
+   also set `DrawioBundle` to `false` in the site's project, which leaves the bundled copy
+   out of the build.
 
-The location sends the configuration scripts, settings, editor/viewer wrappers and proxy to the application ahead of IIS's
-static file handler, and hides the servlet folders and source maps in the draw.io source:
+The location sends six paths to the application ahead of IIS's static file handler, and
+hides the servlet folders and source maps of the draw.io source:
 
 ```xml
 <!-- /Draw is an IIS virtual directory holding the draw.io web app. Its files are static; these
@@ -57,7 +62,7 @@ static file handler, and hides the servlet folders and source maps in the draw.i
 </location>
 ```
 
-The application redirects `/media/…/*.drawio` into the editor. IIS answers some media requests
+The application redirects `/media/…/*.drawio` to the editor. IIS answers some media requests
 before they reach the application, so URL Rewrite needs the same redirect:
 
 ```xml
@@ -67,14 +72,14 @@ before they reach the application, so URL Rewrite needs the same redirect:
 </rule>
 ```
 
-Under an IIS application with its own virtual path, such as `/intranet`, prefix the redirect URL
-with that path.
+Under an IIS application with a virtual path of its own, such as `/intranet`, put that path
+before both `/draw` and the `url` value: `/intranet/draw/editor?url=/intranet/{UrlEncode:{R:1}}`.
 
 ## Upgrade
 
 To upgrade draw.io, point the virtual directory to a folder with the new release. To change
-libraries, plugins or other settings, deploy the site. The application generates `PreConfig.js`
-and `PostConfig.js` for each request, so the stock copies in the virtual directory stay unused.
+libraries, plugins or other settings, deploy the site. The application writes `PreConfig.js`
+and `PostConfig.js` for each request, so the copies in the virtual directory stay unused.
 
 ## Check a deployment
 
@@ -89,10 +94,14 @@ curl.exe -sSI "$site/draw/js/PostConfig.js"
 ```
 
 All four return **200**, and the two configuration scripts carry
-`X-Drawio-Host: AurorisNet.Umbraco.Drawio`. A configuration script that returns 200 without that
-header came from the virtual directory's stock copy. Check the `Draw` location in the deployed
-`web.config`, and check that IIS maps `/Draw` as a virtual directory rather than an application.
+`X-Drawio-Host: AurorisNet.Umbraco.Drawio`. A configuration script that returns 200 without
+that header came from the copy in the virtual directory. In that case, check the `Draw`
+location in the deployed `web.config`, and check that IIS lists `/Draw` as a virtual
+directory and not as an application.
 
-Then open a page with a diagram and select it, and the viewer opens in a new tab. Open the link to
-a `.drawio` media file, and the editor loads it. In the browser's network panel, the editor's
-request to `/draw/proxy?url=media/…` returns 200 with the same header.
+Then check the editor in a browser:
+
+1. Open a page with a diagram and select it. The viewer opens in a new tab.
+2. Open the link to a `.drawio` media file. The editor loads it.
+3. In the browser's network panel, the editor's request to `/draw/proxy?url=media/…`
+   returns 200 with the same header.
