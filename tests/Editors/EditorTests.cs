@@ -72,7 +72,21 @@ public sealed class EditorTests
         var download = await page.RunAndWaitForDownloadAsync(() => page.Keyboard.PressAsync("ControlOrMeta+s"));
         Assert.Equal("Floor plan + étage.drawio", download.SuggestedFilename);
         await download.SaveAsAsync(Path.Combine(webRoot, "saved.drawio"));
+        if (selfhosted)
+        {
+            var scripts = Directory.CreateDirectory(Path.Combine(webRoot, "App_Plugins", "AurorisNet.Drawio"));
+            await File.WriteAllTextAsync(Path.Combine(scripts.FullName, "PreConfig.js"),
+                "window.DRAWIO_CONFIG = { defaultGridSize: 37 };", cancel);
+            await File.WriteAllTextAsync(Path.Combine(scripts.FullName, "PostConfig.js"),
+                "document.documentElement.dataset.sitePostConfig = typeof App;", cancel);
+        }
         await page.GotoAsync(EditorPage("saved.drawio"));
         await editor.GetByText("Saved from the editor", new() { Exact = true }).First.WaitForAsync();
+        if (selfhosted)
+        {
+            var frame = page.Frames.Single(f => f.ParentFrame == page.MainFrame);
+            Assert.Equal(37, await frame.EvaluateAsync<int>("mxGraph.prototype.gridSize"));
+            Assert.Equal("function", await frame.Locator("html").GetAttributeAsync("data-site-post-config"));
+        }
     }
 }

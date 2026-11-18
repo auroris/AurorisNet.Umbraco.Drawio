@@ -20,18 +20,19 @@ the newest version.
 
 ## What the package covers
 
-The package serves the editor and viewer under `/draw/` and the media proxy at `/draw/proxy`,
-redirects `.drawio` media links to the editor, adds a backoffice property editor and block
-previews, and removes diagram media that no content refers to after versions or pages are
-deleted. A vulnerability in any of that belongs here. Examples are a way to read a file
-outside the media store through the proxy, or to load a script from another site into the
-editor.
+The package serves the editor and viewer under `/draw/`, redirects `.drawio` media links to
+the editor, adds a backoffice property editor and block previews, and removes diagram media
+that no content refers to after versions or pages are deleted. A vulnerability in any of
+that belongs here. Examples are a way to read a file that the website keeps from the
+visitor, or to load a script from another site into the editor.
 
 Some access is by design:
 
-- `/draw/editor`, `/draw/viewer` and `/draw/proxy` answer without a sign-in. The proxy
-  returns `.png`, `.svg`, `.drawio` and `.xml` files from the media store to anyone who can
-  reach the site.
+- `/draw/editor`, `/draw/viewer` and `/draw/settings` answer without a sign-in. The editor
+  and viewer read a file from its own address on the website, so they show a visitor only
+  what that address already gives them, and `/draw/proxy` only redirects to that address.
+  The settings name the editor's address, the configured libraries and the Umbraco major
+  version.
 - The scripts in `Drawio:Plugins`, and script from an `IDrawioScriptContributor`, run in the
   self-hosted editor's page with the signed-in editor's access to the site. Anyone who can
   write the site's configuration or code chooses them.

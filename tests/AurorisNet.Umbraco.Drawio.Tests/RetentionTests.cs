@@ -20,11 +20,23 @@ public sealed partial class SiteTests
     {
         public override int MajorVersion { get; } = services.GetRequiredService<IUmbracoApi>().MajorVersion;
         internal int WriteScopes { get; private set; }
-        protected override IEnumerable<IContent> GetVersions(int contentId) => throw new InvalidOperationException("Save scanned history.");
+        internal bool ScannedHistory { get; private set; }
+        internal bool FailRelations { get; set; }
+        // Tracking logs its own failures, so record a history scan here.
+        protected override IEnumerable<IContent> GetVersions(int contentId)
+        {
+            ScannedHistory = true;
+            return [];
+        }
         public override T WithTreeWriteScope<T>(Func<T> work)
         {
             WriteScopes++;
             return base.WithTreeWriteScope(work);
+        }
+        public override void AddRetentionRelation(int contentId, int mediaId)
+        {
+            if (FailRelations) throw new InvalidOperationException("The relation could not be stored.");
+            base.AddRetentionRelation(contentId, mediaId);
         }
     }
 
@@ -43,6 +55,27 @@ public sealed partial class SiteTests
         Assert.True(content.Save(page).Success);
         retention.Track([page]);
         Assert.Equal(1, api.WriteScopes);
+        Assert.False(api.ScannedHistory);
+    }
+
+    /// <summary>Tracking runs once the save has committed, so its failure must not turn a saved page into an error.</summary>
+    [Fact]
+    public async Task A_tracking_failure_leaves_the_save_standing_and_the_next_save_records_the_diagram()
+    {
+        var api = new SaveTrackingApi(Site.Services);
+        var retention = ActivatorUtilities.CreateInstance<DiagramMediaRetention>(Site.Services, api);
+        var page = await DiagramPage("trackFailure");
+        var image = DiagramImage();
+        Pick(page, image);
+        Assert.True(Site.Services.GetRequiredService<IContentService>().Save(page).Success);
+        // The site's own handler has recorded the relation. Remove it, so this tracker has one to add.
+        foreach (var relation in api.GetRetentionRelations(page.Id)) api.DeleteRetentionRelation(relation.Id);
+        api.FailRelations = true;
+        retention.Track([page]);
+        Assert.Empty(api.GetRetentionRelations(page.Id));
+        api.FailRelations = false;
+        retention.Track([page]);
+        Assert.Equal(image.Id, Assert.Single(api.GetRetentionRelations(page.Id)).MediaId);
     }
 
     [Fact]

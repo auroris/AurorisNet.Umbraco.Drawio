@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
@@ -12,9 +13,7 @@ using Drawio.Compatibility;
 namespace Drawio;
 
 /// <summary>
-/// Serves the editor at <c>/draw/</c> ahead of Umbraco's routing. Under IIS, <c>/draw</c> can instead be a virtual directory
-/// holding the stock draw.io app; IIS then passes the configuration scripts, settings, editor/viewer wrappers and media
-/// proxy to the application, which answer the same way here.
+/// Serves the editor at <c>/draw/</c> in Umbraco's pipeline. The configuration scripts are served before the editor's static files.
 /// </summary>
 internal static class DrawioHosting
 {
@@ -162,7 +161,19 @@ internal static class DrawioHosting
         context.Response.ContentType = "text/javascript; charset=utf-8";
         context.Response.Headers.CacheControl = "no-cache";
         context.Response.Headers.XContentTypeOptions = "nosniff";
-        if (!HttpMethods.IsHead(context.Request.Method)) await context.Response.WriteAsync(script, context.RequestAborted);
+        if (HttpMethods.IsHead(context.Request.Method)) return;
+        var cancel = context.RequestAborted;
+        await context.Response.WriteAsync(script, cancel);
+
+        var webRoot = context.RequestServices.GetRequiredService<IWebHostEnvironment>().WebRootFileProvider;
+        var fileName = pre ? "PreConfig.js" : "PostConfig.js";
+        var siteScript = webRoot.GetFileInfo($"{DrawioPaths.Plugin}/{fileName}");
+        if (siteScript.Exists && !siteScript.IsDirectory)
+        {
+            // A contributor may end in a line comment or omit its last semicolon.
+            await context.Response.WriteAsync("\n;\n", cancel);
+            await context.Response.SendFileAsync(siteScript, cancel);
+        }
     }
 
     /// <summary>

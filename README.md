@@ -1,9 +1,5 @@
 # draw.io for Umbraco
 
-> **Self-hosting requires both `AurorisNet.Umbraco.Drawio` and `AurorisNet.Umbraco.Drawio.Selfhosted`.**
-> Install the self-hosted package and NuGet installs the matching base package as a dependency.
-> The bundled editor is available at `/draw/` on a default Umbraco site.
-
 Create, edit and view [draw.io](https://www.drawio.com) diagrams on an Umbraco website.
 
 ![MIT license](https://raw.githubusercontent.com/auroris/AurorisNet.Build/main/badges/license-mit.svg)
@@ -28,7 +24,7 @@ uses it.
 
 ## Install
 
-On a supported Umbraco site, run the command for your preferred editor.
+On a supported Umbraco site, install one package and deploy the site as usual.
 
 ```powershell
 dotnet add package AurorisNet.Umbraco.Drawio
@@ -36,10 +32,13 @@ dotnet add package AurorisNet.Umbraco.Drawio
 dotnet add package AurorisNet.Umbraco.Drawio.Selfhosted
 ```
 
-Each package registers itself through an Umbraco composer. A site that builds its services
-by hand calls `builder.AddDrawio()`; a second call changes nothing. On the first start, a
-package migration creates the Diagram element type and its data types, which
-**Backoffice diagrams** below describes.
+Umbraco discovers the package at startup. The Selfhosted package brings in the base package
+and serves the bundled editor at `/draw/` through Umbraco, including on IIS. The default
+install needs no Drawio settings, virtual directory or rewrite rules. A site that builds
+its services by hand can call `builder.AddDrawio()`.
+
+On the first start, a package migration creates the Diagram element type and its data
+types. Add the Diagram block to the Block List or Block Grid where authors should use it.
 
 With the base package, browsers need access to diagrams.net, and a Content Security Policy
 on the site must allow frames from `https://embed.diagrams.net`. The diagram is sent to that
@@ -91,15 +90,29 @@ the editor's files answer 503, and the log names a missing `WebRoot` folder.
 
 To serve a folder of your own with the Selfhosted package installed, set `WebRoot` and add
 `<DrawioBundle>false</DrawioBundle>` to the site's project, which leaves the bundled copy
-out of the build. The
-[IIS guide](https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/docs/IIS-DEPLOYMENT.md)
-serves the folder from an IIS virtual directory.
+out of the build.
 
-For a self-hosted editor, the site answers `/draw/js/PreConfig.js` and
-`/draw/js/PostConfig.js` itself. The scripts turn off draw.io's export server, its hosted
-viewer and its icon search, then apply the libraries and plugins from the settings. To add
-script of your own, register an `IDrawioScriptContributor` as a service: its `PreConfig`
-runs before draw.io starts and its `PostConfig` before the editor opens.
+### Customize the self-hosted editor
+
+Umbraco serves `/draw/js/PreConfig.js` and `/draw/js/PostConfig.js` with the package
+defaults. To customize either script, add the corresponding JavaScript file to your site
+and deploy it with the rest of your web assets.
+
+| Optional site file | When draw.io runs it |
+|---|---|
+| `wwwroot/App_Plugins/AurorisNet.Drawio/PreConfig.js` | Before loading the editor. Use it to change `window.DRAWIO_CONFIG`. |
+| `wwwroot/App_Plugins/AurorisNet.Drawio/PostConfig.js` | After loading the editor code. Use it to customize draw.io's JavaScript APIs. |
+
+For example, this `PreConfig.js` sets the grid spacing and preserves any libraries configured
+in the site's Drawio settings.
+
+```javascript
+window.DRAWIO_CONFIG = { ...window.DRAWIO_CONFIG, defaultGridSize: 20 };
+```
+
+For configuration generated in C#, register an `IDrawioScriptContributor` as a service.
+Each response contains the package defaults, then the registered contributors in order,
+then the site's file if present.
 
 Hosted diagrams.net loads neither plugins nor contributed script. It receives the
 configured libraries and fetches each from the website, so the website must allow
@@ -121,8 +134,9 @@ application.
 The file must be on the same website and at most 40 MiB. The editor reads the original
 media URL through the website's usual media handler, including from remote storage exposed
 through that handler. For a `.drawio` file it sends `Accept: application/xml`. Opening
-that file's link in a browser launches the editor. The legacy `/draw/proxy` endpoint redirects clients to the
-media URL for a bounded download. Its `base64=1` option selects a Base64 response.
+that file's link in a browser launches the editor. The legacy `/draw/proxy` endpoint
+redirects clients to the media URL for a bounded download. Its `base64=1` option selects a
+Base64 response.
 
 The examples use Umbraco's default installation at the site's URL root.
 
@@ -180,6 +194,8 @@ link and no-link choices, including **No link** when the picker still holds a de
 The package compiles three views: `Views/Partials/Drawio/Diagram.cshtml`, and
 `drawioDiagram.cshtml` under `Views/Partials/blocklist/Components` and
 `Views/Partials/blockgrid/Components`. A file at the same path in the site replaces one.
+A copy of `Diagram.cshtml` reads the block with `DiagramFigure.From(Model, Context)`, which
+also chooses the link, so the copy changes the markup alone.
 The image's alternative text is the block's alternative text, then its caption, then the
 `Drawio.OpenDiagram` dictionary item, which reads "Open diagram" until it is translated.
 
@@ -226,7 +242,7 @@ newest release of each major version.
 
 | Page | Covers |
 |---|---|
-| [IIS virtual directory](https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/docs/IIS-DEPLOYMENT.md) | Serving the draw.io web app from an IIS virtual directory at `/draw`, and checking the deployment. |
+| [Optional IIS virtual directory](https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/docs/IIS-DEPLOYMENT.md) | For sites that choose to have IIS serve the editor's static files directly. |
 | [Third-party notices](https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/THIRD-PARTY-NOTICES.md) | The draw.io release the Selfhosted package carries, and its license. |
 | [Security policy](https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/SECURITY.md) | Reporting a vulnerability. |
 

@@ -21,5 +21,8 @@
     <PackageReference Include="xunit.v3" />
     <Compile Include="../AurorisNet.Umbraco.Drawio.Tests/TestSite.cs" Link="TestSite.cs" />
     <Using Include="Xunit" />
+    <!-- The package's views again, as this site's own files at the same paths. Unlike the test assembly, this project
+         reaches only the package's public API, so building them shows that a site can copy each one. -->
+    <Content Include="../../src/Views/Partials/**/*.cshtml" Link="Views/Partials/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

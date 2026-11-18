@@ -34,7 +34,7 @@ public static class DrawioScripts
     /// <summary>The libraries draw.io opens when none are configured, which the configured ones join.</summary>
     public const string StandardLibraries = "general;uml;er;bpmn;flowchart;basic;arrows2";
 
-    private const string Banner = "// Served by AurorisNet.Umbraco.Drawio. See https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/docs/IIS-DEPLOYMENT.md\n";
+    private const string Banner = "// Served by AurorisNet.Umbraco.Drawio.\n";
 
     /// <summary>
     /// <c>PreConfig.js</c>: keeps the editor offline and on this site, then names the extra libraries. draw.io otherwise

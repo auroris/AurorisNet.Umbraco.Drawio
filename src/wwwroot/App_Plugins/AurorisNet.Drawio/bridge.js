@@ -13,7 +13,9 @@ export async function siteSettings() {
 export async function editorSettings(viewer = false) {
     const settings = await siteSettings();
     const url = new URL(settings.editorUrl, location.href);
-    for (const [key, value] of Object.entries({embed:1, proto:'json', spin:1, configure:1, libraries:1})) url.searchParams.set(key, value);
+    for (const [key, value] of Object.entries({embed:1, proto:'json', spin:1, libraries:1})) url.searchParams.set(key, value);
+    // The local editor reads DRAWIO_CONFIG from PreConfig.js. The hosted editor receives it by message.
+    if (url.origin !== location.origin) url.searchParams.set('configure', '1');
     if (viewer) { url.searchParams.set('lightbox', '1'); url.searchParams.set('layers', '1'); url.searchParams.set('nav', '1'); }
     const configuration = settings.configuration || {};
     for (const group of configuration.libraries || []) for (const entry of group.entries || [])

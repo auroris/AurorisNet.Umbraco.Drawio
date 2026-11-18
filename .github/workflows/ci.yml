@@ -1,9 +1,11 @@
 name: CI
 
-# Tests each pull request on the newest supported Umbraco release, and merges a Dependabot update that passes. Other
-# Umbraco releases are tested on a developer's machine, as the README's Developing section describes.
+# Tests each pull request and each push to main on the newest supported Umbraco release, and merges a Dependabot update
+# that passes. Other Umbraco releases are tested on a developer's machine, as the README's Developing section describes.
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       with_virtual_path_fix:

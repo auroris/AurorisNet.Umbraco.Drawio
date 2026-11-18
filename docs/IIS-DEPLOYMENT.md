@@ -1,6 +1,11 @@
-# IIS virtual directory
+# Optional IIS virtual directory
 
-These steps make IIS serve the draw.io web app from a virtual directory at `/draw`. IIS
+For a standard IIS deployment, install the Selfhosted package and publish the Umbraco site
+as usual. Umbraco serves the bundled editor and the site's optional configuration scripts.
+[Customize the self-hosted editor](../README.md#customize-the-self-hosted-editor).
+
+Follow the steps below only if you want IIS to serve the static files from a separate
+virtual directory at `/draw`. IIS
 answers the app's static files, and the Umbraco application answers the configuration
 scripts, the settings, the editor and viewer pages, the media proxy and `.drawio` media
 links. [Where the editor comes from](../README.md#where-the-editor-comes-from) in the README
