@@ -102,6 +102,12 @@ jobs:
           }
           ./scripts/Test-Packages.ps1 -Version $env:RELEASE_VERSION
 
+      - name: Open and save diagrams with both editor packages
+        if: ${{ inputs.test }}
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: xvfb-run -a pwsh -NoProfile -File ./scripts/Test-Editors.ps1 -Version $env:RELEASE_VERSION
+
       # Name the draw.io release the Selfhosted package carries, above any notes from the run.
       - name: Write the release notes
         id: notes

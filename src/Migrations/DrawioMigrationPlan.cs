@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Drawio.Compatibility;
+using Microsoft.Extensions.Logging;
+using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Configuration.Models;
 using Umbraco.Cms.Core.IO;
 using Umbraco.Cms.Core.Packaging;
@@ -25,7 +27,45 @@ public sealed class DrawioMigrationPlan() : PackageMigrationPlan(Identifier, Dis
     public const string DisplayName = "draw.io for Umbraco";
 
     /// <inheritdoc />
-    protected override void DefinePlan() => To<ImportDiagramElementType>("drawio-diagram-element-type");
+    protected override void DefinePlan() => To<ImportDiagramElementType>("drawio-diagram-element-type")
+        .To<CreateDiagramMediaFolder>("drawio-media-folder")
+        .To<UpdateDiagramEditorDescription>("drawio-edit-media-in-place");
+}
+
+/// <summary>Updates the original editor help on existing sites that still use the stock description.</summary>
+public sealed class UpdateDiagramEditorDescription(IMigrationContext context, IContentTypeService types) : AsyncMigrationBase(context)
+{
+    /// <inheritdoc />
+    protected override async Task MigrateAsync()
+    {
+        var element = types.Get(ImportDiagramElementType.ElementTypeKey);
+        var image = element?.PropertyTypes.FirstOrDefault(property => property.Alias == "image");
+        if (image?.Description != "Create the diagram here, or open the current one in the editor. Each save keeps a new PNG.") return;
+        image.Description = "Create a diagram or edit the selected media item. Saving an edit updates the drawing wherever it is used.";
+        if (!(await types.UpdateAsync(element!, Constants.Security.SuperUserKey)).Success)
+            throw new InvalidOperationException("Could not update the diagram editor description.");
+    }
+}
+
+/// <summary>Provisions the default media folder on installation or upgrade.</summary>
+public sealed class CreateDiagramMediaFolder(IMigrationContext context, IMediaService media, ILogger<CreateDiagramMediaFolder> logger)
+    : AsyncMigrationBase(context)
+{
+    /// <inheritdoc />
+    protected override Task MigrateAsync()
+    {
+        const string name = "drawio";
+        var matching = media.GetRootMedia().Where(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (matching.Any(item => item.ContentType.Alias == Constants.Conventions.MediaTypes.Folder)) return Task.CompletedTask;
+        if (matching.Length > 0)
+        {
+            logger.LogWarning("A media item named drawio already exists at the root. The diagram editor will use the media root until a drawio folder is available.");
+            return Task.CompletedTask;
+        }
+        var folder = media.CreateMedia(name, Constants.System.Root, Constants.Conventions.MediaTypes.Folder);
+        if (!media.Save(folder).Success) throw new InvalidOperationException("Umbraco could not install the drawio media folder.");
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>

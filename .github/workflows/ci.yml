@@ -5,6 +5,11 @@ name: CI
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      with_virtual_path_fix:
+        description: Also test both editors with ApplicationVirtualPathFix installed
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -58,6 +63,13 @@ jobs:
 
       - name: Verify packages
         run: ./scripts/Test-Packages.ps1 -Version 0.0.0-dev
+
+      - name: Open and save diagrams with both editor packages
+        run: xvfb-run -a pwsh -NoProfile -File ./scripts/Test-Editors.ps1 -Version 0.0.0-dev
+
+      - name: Test both editors with ApplicationVirtualPathFix
+        if: ${{ inputs.with_virtual_path_fix }}
+        run: xvfb-run -a pwsh -NoProfile -File ./scripts/Test-Editors.ps1 -Version 0.0.0-dev -WithApplicationVirtualPathFix
 
   # A workflow that runs for Dependabot gets a read-only token unless the job asks for more.
   dependabot:

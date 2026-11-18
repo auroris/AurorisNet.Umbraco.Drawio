@@ -43,7 +43,7 @@ public sealed class PackageTests
         Assert.Equal("True", element.Element("Info")!.Element("IsElement")!.Value);
         var image = element.Descendants("GenericProperty").Single(p => p.Element("Alias")!.Value == "image");
         Assert.Equal(dataType.Attribute("Definition")!.Value, image.Element("Definition")!.Value);
-        Assert.Equal(["image", "caption", "altText", "clickAction", "link"], element.Descendants("GenericProperty").OrderBy(p => int.Parse(p.Element("SortOrder")!.Value)).Select(p => p.Element("Alias")!.Value));
+        Assert.Equal(["image", "caption", "altText", "openInViewer", "link"], element.Descendants("GenericProperty").OrderBy(p => int.Parse(p.Element("SortOrder")!.Value)).Select(p => p.Element("Alias")!.Value));
         // Umbraco finds the embedded copy by the migration step's namespace.
         Assert.Contains($"{typeof(ImportDiagramElementType).Namespace}.package.xml", typeof(ImportDiagramElementType).Assembly.GetManifestResourceNames());
     }

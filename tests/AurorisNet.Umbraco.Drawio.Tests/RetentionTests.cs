@@ -158,7 +158,7 @@ public sealed partial class SiteTests
         return image;
     }
 
-    private static void Pick(IContent item, IMedia image, int? action = 0, object[]? link = null)
+    private static void Pick(IContent item, IMedia image, bool? openInViewer = null, object[]? link = null)
     {
         var key = Guid.NewGuid();
         item.SetValue("diagrams", JsonSerializer.Serialize(new
@@ -167,7 +167,7 @@ public sealed partial class SiteTests
             contentData = new[] { new { key, contentTypeKey = ImportDiagramElementType.ElementTypeKey, values = new object[]
             {
                 new { alias = "image", culture = (string?)null, segment = (string?)null, editorAlias = "Umbraco.MediaPicker3", value = new[] { new { key = Guid.NewGuid(), mediaKey = image.Key } } },
-                new { alias = "clickAction", culture = (string?)null, segment = (string?)null, editorAlias = "Umbraco.Integer", value = action },
+                new { alias = "openInViewer", culture = (string?)null, segment = (string?)null, editorAlias = "Umbraco.TrueFalse", value = openInViewer },
                 new { alias = "link", culture = (string?)null, segment = (string?)null, editorAlias = "Umbraco.MultiUrlPicker", value = link }
             } } },
             settingsData = Array.Empty<object>(), expose = new[] { new { contentKey = key, culture = (string?)null, segment = (string?)null } }

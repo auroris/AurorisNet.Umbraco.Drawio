@@ -8,6 +8,9 @@ foreach ($id in @('AurorisNet.Umbraco.Drawio', 'AurorisNet.Umbraco.Drawio.Selfho
     try {
         $reader = [IO.StreamReader]::new($zip.GetEntry("$id.nuspec").Open())
         try { [xml]$spec = $reader.ReadToEnd() } finally { $reader.Dispose() }
+        if (($spec.package.metadata.tags -split '[\s,;]+') -notcontains 'umbraco-marketplace') {
+            throw "$id is missing the umbraco-marketplace tag."
+        }
         $distribution = @($zip.Entries | Where-Object FullName -like 'drawio/*')
         if ($id.EndsWith('.Selfhosted')) {
             if ($distribution.Count -lt 1000 -or -not $zip.GetEntry('drawio/index.html') -or -not $zip.GetEntry('drawio/DRAWIO-LICENSE.txt')) {

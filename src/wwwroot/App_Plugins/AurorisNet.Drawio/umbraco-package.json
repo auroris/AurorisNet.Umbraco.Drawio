@@ -5,9 +5,9 @@
     {
       "type": "propertyEditorUi",
       "alias": "AurorisNet.Drawio.ClickAction",
-      "name": "Diagram click action",
+      "name": "Diagram click action (legacy)",
       "element": "/App_Plugins/AurorisNet.Drawio/click-action.js",
-      "meta": { "label": "Diagram click action", "icon": "icon-link", "group": "common", "propertyEditorSchemaAlias": "Umbraco.Integer" }
+      "meta": { "label": "Diagram click action (legacy)", "icon": "icon-eye", "group": "common", "propertyEditorSchemaAlias": "Umbraco.Integer" }
     },
     {
       "type": "propertyEditorUi",

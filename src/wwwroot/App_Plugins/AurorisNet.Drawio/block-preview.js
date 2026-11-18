@@ -1,5 +1,8 @@
 import { UmbLitElement } from '@umbraco-cms/backoffice/lit-element';
 import { html, css, nothing } from '@umbraco-cms/backoffice/external/lit';
+import { fromEvent } from '@umbraco-cms/backoffice/external/rxjs';
+import { UMB_ACTION_EVENT_CONTEXT } from '@umbraco-cms/backoffice/action';
+import { UmbEntityUpdatedEvent } from '@umbraco-cms/backoffice/entity-action';
 import { mediaApi } from './compatibility/media-api.js';
 
 /**
@@ -10,6 +13,14 @@ export default class DiagramPreview extends UmbLitElement {
     static properties = Object.fromEntries(['content', 'config', 'label', 'icon', 'unpublished'].map(name => [name, { attribute: false }]));
     #api;
     #apiError = false;
+    constructor() {
+        super();
+        this.consumeContext(UMB_ACTION_EVENT_CONTEXT, events => {
+            this.observe(events && fromEvent(events, UmbEntityUpdatedEvent.TYPE), event => {
+                if (this.#key && event.getUnique() === this.#key) this.#load(this.#key);
+            }, 'diagramMediaUpdates');
+        });
+    }
     connectedCallback() {
         super.connectedCallback();
         mediaApi(this).then(api => { this.#api = api; this.requestUpdate(); }).catch(() => { this.#apiError = true; this.requestUpdate(); });

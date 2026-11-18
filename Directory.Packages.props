@@ -8,5 +8,6 @@
     <PackageVersion Include="Umbraco.Cms" Version="[$(UmbracoVersion)]" />
     <PackageVersion Include="Umbraco.Cms.DevelopmentMode.Backoffice" Version="[$(UmbracoVersion)]" />
     <PackageVersion Include="xunit.v3" Version="4.0.3" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.65.0" />
   </ItemGroup>
 </Project>

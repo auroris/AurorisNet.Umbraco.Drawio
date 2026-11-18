@@ -101,8 +101,13 @@ internal abstract class UmbracoApi(IServiceProvider services) : IUmbracoApi
     {
         var image = element.Value<MediaWithCrops>("image");
         var link = element.Value<Link>("link");
-        return new(image?.MediaUrl(), element.Value<string>("caption"), element.Value<string>("altText"),
-            element.HasValue("clickAction") ? (DiagramClickAction)element.Value<int>("clickAction") : DiagramClickAction.None,
+        var openInViewer = element.HasProperty("openInViewer")
+            ? element.Value<bool>("openInViewer")
+            : element.HasValue("clickAction") && element.Value<int>("clickAction") == (int)DiagramClickAction.Viewer;
+        var action = openInViewer
+            ? DiagramClickAction.Viewer
+            : link?.Url is null ? DiagramClickAction.None : DiagramClickAction.Link;
+        return new(image?.MediaUrl(), element.Value<string>("caption"), element.Value<string>("altText"), action,
             link?.Url, link?.Target, link?.Name,
             services.GetRequiredService<UmbracoHelper>().GetDictionaryValueOrDefault("Drawio.OpenDiagram", "Open diagram"));
     }

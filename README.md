@@ -1,5 +1,9 @@
 # draw.io for Umbraco
 
+> **Self-hosting requires both `AurorisNet.Umbraco.Drawio` and `AurorisNet.Umbraco.Drawio.Selfhosted`.**
+> Install the self-hosted package and NuGet installs the matching base package as a dependency.
+> The bundled editor is available at `/draw/` on a default Umbraco site.
+
 Create, edit and view [draw.io](https://www.drawio.com) diagrams on an Umbraco website.
 
 ![MIT license](https://raw.githubusercontent.com/auroris/AurorisNet.Build/main/badges/license-mit.svg)
@@ -24,7 +28,7 @@ uses it.
 
 ## Install
 
-Add one of the two packages to a website that runs a supported Umbraco release:
+On a supported Umbraco site, run the command for your preferred editor.
 
 ```powershell
 dotnet add package AurorisNet.Umbraco.Drawio
@@ -119,8 +123,7 @@ The file must be on the same website and at most 40 MiB. The editor reads `.draw
 from Umbraco's media file system, so media in remote storage opens too. The proxy accepts
 paths inside the media store only.
 
-All paths include the site's path base under an IIS application, such as
-`/intranet/draw/editor`.
+The examples use Umbraco's default installation at the site's URL root.
 
 ## Backoffice diagrams
 
@@ -131,7 +134,7 @@ change or delete them afterwards:
 |---|---|
 | **Diagram** element type (`drawioDiagram`) | A block with a diagram, a caption, an alternative text, a click action and a link. |
 | **Diagram (editable PNG)** data type | A picker for one image, with a **Create diagram** or **Edit diagram** button. |
-| **Diagram click action** and **Diagram destination** data types | The block's click action and link. |
+| **Open in Viewer** | Uses Umbraco’s built-in **True/false** data type. The separate **Link** field uses the **Diagram destination** link picker. |
 
 To use it:
 
@@ -141,9 +144,13 @@ To use it:
    `diagram-<key>.png` through Umbraco's management API, with the signed-in user's media
    permissions, and selects it in the block.
 
-Each save creates a new media item, in the folder and with the name of the one before it.
-The earlier item stays, so the published page keeps its image until the page is published
-again.
+The package creates **Media → drawio** on installation or upgrade. A new diagram gets
+a media item named after the page, or `diagram` if the page name is unavailable. It goes
+in **drawio** when that folder exists and in the media root otherwise.
+
+**Edit diagram** replaces the PNG on the existing media item, preserving its ID, name
+and folder. Pages and blocks that share that item use the updated drawing as soon as
+you save it in draw.io.
 
 The **Diagram (editable PNG)** data type also works on your own content types. The editor
 reopens the original PNG file, so keep that file as it was saved: image optimisation that
@@ -154,17 +161,17 @@ strips its metadata removes the drawing.
 `/draw/viewer?url=/media/example/plan.drawio` shows a file from the website read-only, with
 zoom, page and layer controls. It opens the same sources as the standalone editor.
 
-A published Diagram block shows the image and its caption. The block's click action decides
-what selecting the image does:
+New Diagram blocks show an unlinked image by default. **Open in Viewer** and **Link**
+control what happens when someone selects the image.
 
-| Click action | Published result |
-|---|---|
-| **Open diagram viewer** | Opens the viewer in a new tab. New blocks start with this action. |
-| **Follow link below** | Follows the block's link to a content page, a media item or a URL, with the link's target. Without a link, the image is unlinked. |
-| **No link** | Shows the image unlinked. |
+| Open in Viewer | Link | Published result |
+|---|---|---|
+| Off | Empty | Shows the image and caption without a link. |
+| Off | Set | Opens the selected content page, media item or URL using the link's target. |
+| On | Any | Opens the diagram viewer in a new tab. |
 
-A block without a click action shows the image unlinked. The block renders a link only to a
-path on the website, an anchor, or an `http`, `https`, `mailto` or `tel` address.
+The block renders a link only to a path on the website, an anchor, or an `http`, `https`,
+`mailto` or `tel` address.
 
 The package compiles three views: `Views/Partials/Drawio/Diagram.cshtml`, and
 `drawioDiagram.cshtml` under `Views/Partials/blocklist/Components` and
@@ -238,6 +245,8 @@ dotnet test --project tests/AurorisNet.Umbraco.Drawio.Tests -c Release -p:Umbrac
 dotnet pack src/AurorisNet.Umbraco.Drawio.csproj -c Release -o artifacts/packages
 dotnet pack selfhosted/AurorisNet.Umbraco.Drawio.Selfhosted.csproj -c Release -o artifacts/packages
 pwsh scripts/Test-Packages.ps1 -Version 0.0.0-dev
+# Open and save a diagram with each installation in Google Chrome
+pwsh scripts/Test-Editors.ps1 -Version 0.0.0-dev
 ```
 
 The full test matrix is the test command run once for each release in `UmbracoReleases` in
@@ -252,9 +261,19 @@ for media calls. A new major version
 needs an adapter of its own in both places: the package refuses to run on a major version
 it has none for.
 
-The tests open no browser. After a change to the editor scripts, check by hand, with the
-hosted and the self-hosted editor: create, save, reopen and publish a block, try each click
-action, and open a PNG, an SVG and a `.drawio` file in the standalone editor and the viewer.
+The editor tests install the packed NuGet files in two separate Umbraco sites and require
+Google Chrome. The base-package test uses the live editor at `https://embed.diagrams.net/`
+and needs internet access and a display (CI uses Xvfb). The self-hosted test allows the
+browser to contact only the local site. Each test runs at the host root and under a nested
+application path, edits a label, saves the diagram and reopens it to check the edit.
+
+For an optional compatibility test, add `-WithApplicationVirtualPathFix` to the
+`Test-Editors.ps1` command. The test installs `AurorisNet.Umbraco.ApplicationVirtualPathFix`
+in the disposable test site. You can also select this option in a manual CI run.
+
+After a change to the editor scripts, also check both editors by hand. Create, save, reopen
+and publish a block, try each click action, and open a PNG, an SVG and a `.drawio` file in
+the standalone editor and the viewer.
 
 To move to a newer draw.io, update the `external/drawio` submodule and the release and
 commit in `THIRD-PARTY-NOTICES.md`.

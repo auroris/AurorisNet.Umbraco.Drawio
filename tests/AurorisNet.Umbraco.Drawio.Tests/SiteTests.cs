@@ -28,6 +28,7 @@ public sealed class SiteFixture : IAsyncLifetime
     {
         Site = await TestSite.StartAsync(new Dictionary<string, string?>
         {
+            ["Drawio:WebRoot"] = "draw",
             ["Drawio:Libraries:0:Id"] = "site-shapes",
             ["Drawio:Libraries:0:Title"] = "Site shapes",
             ["Drawio:Libraries:0:Url"] = "/App_Plugins/Site/shapes.xml",
@@ -71,6 +72,9 @@ public sealed partial class SiteTests(SiteFixture fixture) : IClassFixture<SiteF
         var state = Site.Services.GetRequiredService<IKeyValueService>().FindByKeyPrefix(Constants.Conventions.Migrations.KeyValuePrefix);
         Assert.DoesNotContain(DrawioMigrationPlan.Identifier, Site.Services.GetRequiredService<PendingPackageMigrations>().GetPendingPackageMigrations(state));
 
+        var folder = Assert.Single(Site.Services.GetRequiredService<IMediaService>().GetRootMedia(), item => item.Name == "drawio");
+        Assert.Equal(Constants.Conventions.MediaTypes.Folder, folder.ContentType.Alias);
+
         var dataType = await Site.Services.GetRequiredService<IDataTypeService>().GetAsync(ImportDiagramElementType.DataTypeKey);
         Assert.NotNull(dataType);
         Assert.Equal(Constants.PropertyEditors.Aliases.MediaPicker3, dataType.EditorAlias);
@@ -84,7 +88,9 @@ public sealed partial class SiteTests(SiteFixture fixture) : IClassFixture<SiteF
         Assert.Equal(dataType.Id, element.PropertyTypes.Single(p => p.Alias == "image").DataTypeId);
         Assert.Equal(Constants.PropertyEditors.Aliases.TextBox, element.PropertyTypes.Single(p => p.Alias == "caption").PropertyEditorAlias);
         Assert.Equal(Constants.PropertyEditors.Aliases.TextBox, element.PropertyTypes.Single(p => p.Alias == "altText").PropertyEditorAlias);
-        Assert.Equal("Umbraco.Integer", element.PropertyTypes.Single(p => p.Alias == "clickAction").PropertyEditorAlias);
+        var viewer = element.PropertyTypes.Single(p => p.Alias == "openInViewer");
+        Assert.Equal("Umbraco.TrueFalse", viewer.PropertyEditorAlias);
+        Assert.Equal("Umb.PropertyEditorUi.Toggle", (await Site.Services.GetRequiredService<IDataTypeService>().GetAsync(viewer.DataTypeKey))?.EditorUiAlias);
         Assert.Equal("Umbraco.MultiUrlPicker", element.PropertyTypes.Single(p => p.Alias == "link").PropertyEditorAlias);
         Assert.NotNull(Site.Services.GetRequiredService<IRelationService>().GetRelationTypeByAlias(DiagramMediaRetention.RelationAlias));
     }

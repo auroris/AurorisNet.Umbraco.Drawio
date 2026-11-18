@@ -5,7 +5,7 @@
     <Version>0.0.0-dev</Version>
     <Authors>Auroris</Authors>
     <Description>Bundles the draw.io web app for Umbraco 17 and 18 on .NET 10 and automatically configures AurorisNet.Umbraco.Drawio to use it locally, including the editor, backoffice integration and viewer.</Description>
-    <PackageTags>umbraco;drawio;diagrams.net;offline;selfhosted</PackageTags>
+    <PackageTags>umbraco;umbraco-marketplace;drawio;diagrams.net;offline;selfhosted</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>

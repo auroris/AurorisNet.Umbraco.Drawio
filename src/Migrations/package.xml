@@ -7,8 +7,6 @@
     </package>
   </info>
   <DataTypes>
-    <DataType Definition="ccbd2932-b9ae-4e97-8b3e-e8bba39307d0" Name="Diagram click action" Id="Umbraco.Integer"
-              EditorUiAlias="AurorisNet.Drawio.ClickAction" DatabaseType="Integer" Folders="Diagrams" Configuration="{}" />
     <DataType Definition="fa7f0a64-4d45-49b6-9d8c-7ab98e9bf391" Name="Diagram destination" Id="Umbraco.MultiUrlPicker"
               EditorUiAlias="Umb.PropertyEditorUi.MultiUrlPicker" DatabaseType="Ntext" Folders="Diagrams"
               Configuration="{&quot;maxNumber&quot;:1}" />
@@ -37,15 +35,15 @@
       <Structure />
       <GenericProperties>
         <GenericProperty>
-          <Key>50f2e655-5c73-45bb-9be6-22db4a7d7813</Key><Name>Click action</Name><Alias>clickAction</Alias>
-          <Definition>ccbd2932-b9ae-4e97-8b3e-e8bba39307d0</Definition><Type>Umbraco.Integer</Type>
-          <Mandatory>False</Mandatory><Validation /><Description>Choose the viewer, a link, or an unlinked image.</Description>
+          <Key>50f2e655-5c73-45bb-9be6-22db4a7d7813</Key><Name>Open in Viewer</Name><Alias>openInViewer</Alias>
+          <Definition>92897bc6-a5f3-4ffe-ae27-f2e7e33dda49</Definition><Type>Umbraco.TrueFalse</Type>
+          <Mandatory>False</Mandatory><Validation /><Description>Open the diagram in a new tab when selected.</Description>
           <SortOrder>3</SortOrder><Tab Alias="content">Content</Tab><Variations>Nothing</Variations><LabelOnTop>False</LabelOnTop>
         </GenericProperty>
         <GenericProperty>
           <Key>dfde4f1c-9d45-4607-ac1f-c8da00572546</Key><Name>Link</Name><Alias>link</Alias>
           <Definition>fa7f0a64-4d45-49b6-9d8c-7ab98e9bf391</Definition><Type>Umbraco.MultiUrlPicker</Type>
-          <Mandatory>False</Mandatory><Validation /><Description>Used with 'Follow link below'. Clear this link to show just the image.</Description>
+          <Mandatory>False</Mandatory><Validation /><Description>Optional destination when Open in Viewer is off.</Description>
           <SortOrder>4</SortOrder><Tab Alias="content">Content</Tab><Variations>Nothing</Variations><LabelOnTop>False</LabelOnTop>
         </GenericProperty>
         <GenericProperty>
@@ -56,7 +54,7 @@
           <Type>Umbraco.MediaPicker3</Type>
           <Mandatory>False</Mandatory>
           <Validation />
-          <Description>Create the diagram here, or open the current one in the editor. Each save keeps a new PNG.</Description>
+          <Description>Create a diagram or edit the selected media item. Saving an edit updates the drawing wherever it is used.</Description>
           <SortOrder>0</SortOrder>
           <Tab Alias="content">Content</Tab>
           <Variations>Nothing</Variations>

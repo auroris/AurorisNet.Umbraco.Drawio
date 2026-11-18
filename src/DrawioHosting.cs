@@ -92,13 +92,12 @@ internal static class DrawioHosting
                 }
                 if (path.Equals("/settings", StringComparison.OrdinalIgnoreCase))
                 {
-                    var site = context.Request.PathBase.Value![..^DrawioPaths.Editor.Length];
                     context.Response.Headers.CacheControl = "no-cache";
                     await context.Response.WriteAsJsonAsync(new
                     {
-                        editorUrl = options.IsSelfHosted ? site + DrawioPaths.Editor + "/" : "https://embed.diagrams.net/",
+                        editorUrl = options.IsSelfHosted ? context.Request.PathBase.ToUriComponent() + "/" : "https://embed.diagrams.net/",
                         umbracoMajor = context.RequestServices.GetRequiredService<IUmbracoApi>().MajorVersion,
-                        configuration = JsonSerializer.Deserialize<JsonElement>(DrawioScripts.Configuration(new(site, options)))
+                        configuration = JsonSerializer.Deserialize<JsonElement>(DrawioScripts.Configuration(new(SitePath(context), options)))
                     }, context.RequestAborted);
                     return;
                 }
@@ -135,10 +134,12 @@ internal static class DrawioHosting
 
     private static bool IsRead(HttpContext context) => HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method);
 
+    // Inside Map("/draw"), PathBase includes the editor branch. Site assets live one level above it.
+    private static string SitePath(HttpContext context) => context.Request.PathBase.ToUriComponent()[..^DrawioPaths.Editor.Length];
+
     private static async Task DiagramPage(HttpContext context, bool viewer)
     {
-        var site = context.Request.PathBase.Value![..^DrawioPaths.Editor.Length];
-        var script = WebUtility.HtmlEncode(site + DrawioPaths.Plugin + "/standalone.js");
+        var script = WebUtility.HtmlEncode(SitePath(context) + DrawioPaths.Plugin + "/standalone.js");
         var title = viewer ? "Diagram viewer" : "Diagram editor";
         context.Response.ContentType = "text/html; charset=utf-8";
         context.Response.Headers.XContentTypeOptions = "nosniff";
@@ -153,12 +154,9 @@ internal static class DrawioHosting
 
     private static async Task ConfigScript(HttpContext context, bool pre)
     {
-        // PathBase here includes the /draw branch; the site's own paths start above it.
-        var pathBase = context.Request.PathBase.Value ?? "";
-        var site = pathBase[..^DrawioPaths.Editor.Length];
         var options = context.RequestServices.GetRequiredService<IOptionsSnapshot<DrawioOptions>>().Value;
         var contributors = context.RequestServices.GetServices<IDrawioScriptContributor>();
-        var scriptContext = new DrawioScriptContext(site, options);
+        var scriptContext = new DrawioScriptContext(SitePath(context), options);
         var script = pre ? DrawioScripts.PreConfig(scriptContext, contributors) : DrawioScripts.PostConfig(scriptContext, contributors);
         context.Response.ContentType = "text/javascript; charset=utf-8";
         context.Response.Headers.CacheControl = "no-cache";

@@ -29,20 +29,25 @@ public sealed partial class SiteTests
         var page = await DiagramPage("renderDestinations");
         var image = DiagramImage();
         var content = Site.Services.GetRequiredService<IContentService>();
-        async Task<string> Render(int? action, object[]? links = null)
+        async Task<string> Render(bool? openInViewer, object[]? links = null)
         {
-            Pick(page, image, action, links); Assert.True(content.Save(page).Success); Assert.True(content.Publish(page, ["*"]).Success);
+            Pick(page, image, openInViewer, links); Assert.True(content.Save(page).Success); Assert.True(content.Publish(page, ["*"]).Success);
             using var response = await Http.GetAsync($"/test/diagram/{page.Id}", Cancel);
             var html = await response.Content.ReadAsStringAsync(Cancel);
             Assert.True(response.StatusCode == HttpStatusCode.OK, html);
             Assert.Contains("<img ", html);
             return html;
         }
-        Assert.Contains("/draw/viewer?url=", await Render((int)DiagramClickAction.Viewer));
-        var custom = await Render((int)DiagramClickAction.Link, [new { name = "Example", url = "https://example.org/diagram", target = "_blank" }]);
+        Assert.Contains("/draw/viewer?url=", await Render(true));
+        object[] links = [new { name = "Example", url = "https://example.org/diagram", target = "_blank" }];
+        var viewerWithLink = await Render(true, links);
+        Assert.Contains("/draw/viewer?url=", viewerWithLink);
+        Assert.DoesNotContain("https://example.org/diagram", viewerWithLink);
+        Assert.Contains("href=\"https://example.org/diagram\"", await Render(null, links));
+        var custom = await Render(false, links);
         Assert.Contains("href=\"https://example.org/diagram\"", custom);
         Assert.Contains("rel=\"noopener\"", custom);
-        var contentLink = await Render((int)DiagramClickAction.Link,
+        var contentLink = await Render(false,
             [new { name = "This page", udi = $"umb://document/{page.Key:N}", url = (string?)null, target = "", queryString = "#diagram" }]);
         using (var context = Site.Services.GetRequiredService<IUmbracoContextFactory>().EnsureUmbracoContext())
         {
@@ -50,11 +55,9 @@ public sealed partial class SiteTests
             Assert.NotEqual("#", destination);
             Assert.Contains($"href=\"{WebUtility.HtmlEncode(destination)}#diagram\"", contentLink);
         }
-        Assert.DoesNotContain("<a ", await Render((int)DiagramClickAction.Link));
-        Assert.DoesNotContain("<a ", await Render((int)DiagramClickAction.None));
+        Assert.DoesNotContain("<a ", await Render(false));
         Assert.DoesNotContain("<a ", await Render(null));
-        Assert.DoesNotContain("<a ", await Render(99));
-        Assert.DoesNotContain("<a ", await Render((int)DiagramClickAction.Link, [new { name = "Bad", url = "javascript:alert(1)", target = "" }]));
+        Assert.DoesNotContain("<a ", await Render(false, [new { name = "Bad", url = "javascript:alert(1)", target = "" }]));
     }
 
     [Fact]

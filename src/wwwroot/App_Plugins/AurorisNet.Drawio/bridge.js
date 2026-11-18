@@ -65,7 +65,7 @@ export async function websiteDiagram(source) {
     return {xml:new XMLSerializer().serializeToString(xml)};
 }
 export async function originalPng(url) {
-    const response = await fetch(url);
+    const response = await fetch(url, {cache:'reload'});
     if (!response.ok) throw Error('The original diagram could not be loaded.');
     const blob = await response.blob();
     if (blob.size > maxBytes) throw Error('The diagram exceeds 40 MiB.');

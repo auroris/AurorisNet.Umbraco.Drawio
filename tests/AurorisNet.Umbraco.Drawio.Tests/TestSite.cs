@@ -8,16 +8,17 @@ using Umbraco.Extensions;
 namespace AurorisNet.Umbraco.Drawio.Tests;
 
 /// <summary>A disposable, normally composed Umbraco site with SQLite and Kestrel, and a stand-in draw.io app.</summary>
-internal sealed class TestSite(WebApplication app, string root) : IAsyncDisposable
+internal sealed class TestSite(WebApplication app, string root, PathString pathBase) : IAsyncDisposable
 {
     public IServiceProvider Services => app.Services;
-    public Uri Address { get; } = new(app.Services.GetRequiredService<IServer>()
-        .Features.Get<IServerAddressesFeature>()!.Addresses.Single());
+    public Uri Address { get; } = new(new Uri(app.Services.GetRequiredService<IServer>()
+        .Features.Get<IServerAddressesFeature>()!.Addresses.Single()), pathBase.ToUriComponent() + "/");
 
     /// <summary>The folder Drawio:WebRoot names, which holds a few files shaped like the draw.io web app.</summary>
     public string WebRoot { get; } = Path.Combine(root, "draw");
 
-    public static async Task<TestSite> StartAsync(IDictionary<string, string?> settings, CancellationToken cancellationToken)
+    public static async Task<TestSite> StartAsync(IDictionary<string, string?> settings, CancellationToken cancellationToken,
+        PathString pathBase = default, bool hostSetsPathBase = true)
     {
         var root = Directory.CreateTempSubdirectory("drawio-test-").FullName;
         Directory.CreateDirectory(Path.Combine(root, "wwwroot"));
@@ -68,7 +69,6 @@ internal sealed class TestSite(WebApplication app, string root) : IAsyncDisposab
             ["Umbraco:CMS:Unattended:UnattendedUserEmail"] = "drawio@example.test",
             ["Umbraco:CMS:Unattended:UnattendedUserPassword"] = "Drawio!Test5278",
             ["Umbraco:CMS:Unattended:UnattendedTelemetryLevel"] = "Minimal",
-            ["Drawio:WebRoot"] = "draw",
         });
         builder.Configuration.AddInMemoryCollection(settings);
         // Use the real discovery path; never call the package's composer directly here.
@@ -78,6 +78,16 @@ internal sealed class TestSite(WebApplication app, string root) : IAsyncDisposab
         try
         {
             await app.BootUmbracoAsync();
+            if (pathBase.HasValue)
+            {
+                // A virtual application cannot serve a request that escaped to the host root.
+                app.Use(async (context, next) =>
+                {
+                    if (context.Request.Path.StartsWithSegments(pathBase)) await next();
+                    else context.Response.StatusCode = StatusCodes.Status404NotFound;
+                });
+                if (hostSetsPathBase) app.UsePathBase(pathBase);
+            }
             app.UseUmbraco().WithMiddleware(u => { u.UseBackOffice(); u.UseWebsite(); })
                 .WithEndpoints(u => { u.UseBackOfficeEndpoints(); u.UseWebsiteEndpoints(); });
             app.MapControllers();
@@ -89,7 +99,7 @@ internal sealed class TestSite(WebApplication app, string root) : IAsyncDisposab
                 await installation.WaitAsync(TimeSpan.FromMinutes(3), cancellationToken);
             var runtime = app.Services.GetRequiredService<IRuntimeState>();
             Assert.True(runtime.Level == RuntimeLevel.Run, runtime.BootFailedException?.ToString() ?? runtime.Level.ToString());
-            return new TestSite(app, root);
+            return new TestSite(app, root, pathBase);
         }
         catch
         {
