@@ -1,7 +1,12 @@
 # Third-party notices
 
-Both packages' own code is under the [MIT license](LICENSE). Only
-`AurorisNet.Umbraco.Drawio.Selfhosted` bundles the third-party work below.
+Both packages' own code is under the [MIT license](LICENSE).
+
+## DOMPurify
+
+The base package uses DOMPurify 3.4.18 by Cure53 and contributors to sanitize inline diagrams.
+The unmodified ES module and its Apache 2.0 license ship in
+`App_Plugins/AurorisNet.Drawio/vendor/dompurify/`. [DOMPurify release](https://github.com/cure53/DOMPurify/tree/3.4.18)
 
 ## draw.io
 

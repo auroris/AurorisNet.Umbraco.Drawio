@@ -3,9 +3,11 @@ import {UmbMediaDetailRepository} from '@umbraco-cms/backoffice/media';
 import {siteSettings} from '../bridge.js';
 import {createMediaApi} from './umbraco-media-api.js';
 
-let version;
+let adapterSettings;
 export async function mediaApi(host) {
-    // The CMS version is fixed for this backoffice session. Do not cache mutable editor configuration.
-    const major = await (version ??= siteSettings().then(settings => settings.umbracoMajor).catch(error => { version = undefined; throw error; }));
-    return createMediaApi(major, host, {MediaService, TemporaryFileService, MediaDetailRepository:UmbMediaDetailRepository});
+    // Both values are fixed for this installation. The editor reads its mutable configuration separately.
+    const {umbracoMajor, diagramFolderId} = await (adapterSettings ??= siteSettings()
+        .then(({umbracoMajor, diagramFolderId}) => ({umbracoMajor, diagramFolderId}))
+        .catch(error => { adapterSettings = undefined; throw error; }));
+    return createMediaApi(umbracoMajor, host, {MediaService, TemporaryFileService, MediaDetailRepository:UmbMediaDetailRepository}, diagramFolderId);
 }

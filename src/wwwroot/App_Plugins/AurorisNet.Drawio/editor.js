@@ -6,7 +6,8 @@ import { UMB_VARIANT_CONTEXT } from '@umbraco-cms/backoffice/variant';
 import { UMB_ACTION_EVENT_CONTEXT } from '@umbraco-cms/backoffice/action';
 import { UmbEntityUpdatedEvent } from '@umbraco-cms/backoffice/entity-action';
 import '@umbraco-cms/backoffice/media';
-import { editableBytes, originalPng, readMessage, send, editorSettings } from './bridge.js';
+import { editableBytes, drawingSource, drawingXml, maxBytes, readMessage, send, editorSettings } from './bridge.js';
+import { extractDiagramMap } from './diagram-map.js';
 import { mediaApi } from './compatibility/media-api.js';
 
 /** The property editor UI for the diagram data type: a single-image media picker with a button that opens draw.io. */
@@ -80,30 +81,37 @@ export default class DiagramEditor extends UmbLitElement {
     post(frame, message) { send(frame, message, this.settings.url.origin); }
     changeValue(value) { this.value = value; this.dispatchEvent(new UmbChangeEvent()); }
     async load(session, frame) {
-        let png;
+        let drawing;
         if (!session.isNew) {
             const media = await this.api.readMedia(session.id);
-            if (!media.url) throw Error('The selected media has no original file.');
-            session.fileName = decodeURIComponent(new URL(media.url, document.baseURI).pathname.split('/').pop());
-            png = await originalPng(media.url);
+            if (!media.sourceUrl) throw Error('The selected diagram has no .drawio source.');
+            const source = new URL(media.sourceUrl, document.baseURI);
+            session.sourceName = decodeURIComponent(source.pathname.split('/').pop());
+            drawing = await drawingSource(source);
         }
         if (this.session !== session) return;
         session.sent = true;
-        this.post(frame, png ? {action:'load',xmlpng:png} : {action:'load'});
+        this.post(frame, {action:'load', ...drawing});
     }
-    async store(png, session) {
+    async store({data, xml, svg}, session) {
         const {id} = session;
-        // Only newly created files get the package's retention marker. Keep the filename of a picked diagram.
-        const fileName = session.fileName ?? `diagram-${id.replaceAll('-', '')}.png`;
-        const file = new File([editableBytes(png)], fileName, {type:'image/png'});
-        const temporaryFileId = await this.api.upload(file);
+        const sourceName = session.sourceName ?? `diagram-${id.replaceAll('-', '')}.drawio`;
+        const stem = sourceName.replace(/\.drawio$/i, '');
+        const sourceFile = new File([xml], sourceName, {type:'application/xml'});
+        const svgFile = new File([svg], stem + '.svg', {type:'image/svg+xml'});
+        if (sourceFile.size > maxBytes || svgFile.size > maxBytes) throw Error('The diagram exceeds 40 MiB.');
+        drawingXml(xml);
+        const map = extractDiagramMap(svg);
+        const pngFile = new File([editableBytes(data)], stem + '.png', {type:'image/png'});
+        const [png, source, vector] = await Promise.all([pngFile, sourceFile, svgFile].map(file => this.api.upload(file)));
+        const files = {png, source, svg:vector, map};
         if (session !== this.session || this.readonly) return;
         if (session.isNew) {
-            await this.api.createImage({id, temporaryFileId, name:await this.pageName()});
+            await this.api.createDiagram({id, files, name:await this.pageName()});
             if (session !== this.session || this.readonly) return;
             this.changeValue(this.api.pickMedia(id, this.value));
         } else {
-            await this.api.updateImage(id, temporaryFileId);
+            await this.api.updateDiagram(id, files);
             this.actionEvents?.dispatchEvent(new UmbEntityUpdatedEvent({entityType:'media', unique:id}));
         }
         if (session === this.session) this.close();
@@ -117,9 +125,9 @@ export default class DiagramEditor extends UmbLitElement {
             else if (msg.event === 'init' && !session.init) { session.init = true; await this.load(session, frame); }
             else if (msg.event === 'load' && session.sent) session.loaded = true;
             else if (msg.event === 'save' && session.loaded && !session.saving) {
-                session.saving = true; this.error = ''; this.post(frame, {action:'export',format:'xmlpng',spinKey:'saving'});
+                session.saving = true; this.error = ''; this.post(frame, {action:'export',format:'xmlpng',withSvg:true,currentPage:true,border:0,scale:1,spinKey:'saving'});
             } else if (msg.event === 'export' && session.saving && !session.uploading) {
-                session.uploading = true; await this.store(msg.data, session);
+                session.uploading = true; await this.store(msg, session);
             } else if (msg.event === 'exit' && !session.uploading) this.close();
         } catch (err) {
             if (session !== this.session) return;
@@ -131,7 +139,7 @@ export default class DiagramEditor extends UmbLitElement {
         }
     };
     render() {
-        return html`<umb-input-rich-media .value=${this.value || []} .allowedContentTypeIds=${this.api?.imageTypeIds || []} .max=${1} .readonly=${this.readonly || !this.api}
+        return html`<umb-input-rich-media .value=${this.value || []} .allowedContentTypeIds=${this.api?.diagramTypeIds || []} .max=${1} .readonly=${this.readonly || !this.api}
             @change=${event => { event.stopPropagation(); if (!this.readonly) this.changeValue(event.target.value); }}></umb-input-rich-media>
             <button type="button" ?disabled=${this.readonly || !this.api} @click=${this.launch}>${this.value?.length ? "Edit diagram" : "Create diagram"}</button>
             <span role="alert">${this.open ? '' : this.error}</span>

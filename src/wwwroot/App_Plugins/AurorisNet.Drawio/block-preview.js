@@ -5,7 +5,7 @@ import { UmbEntityUpdatedEvent } from '@umbraco-cms/backoffice/entity-action';
 import { mediaApi } from './compatibility/media-api.js';
 
 /**
- * The drawioDiagram block's preview in a Block Grid or Block List: the diagram's PNG and caption, so editors see the
+ * The drawioDiagram block's preview in a Block Grid or Block List: the selected image format and caption, so editors see the
  * drawing instead of the block's name. Selecting the preview opens the block, as the default view does.
  */
 export default class DiagramPreview extends UmbLitElement {
@@ -33,27 +33,28 @@ export default class DiagramPreview extends UmbLitElement {
         super.disconnectedCallback();
     }
     #key;
-    #url;
+    #media;
     async #load(key) {
         this.#key = key;
-        this.#url = undefined;
+        this.#media = undefined;
         if (!key) return;
         try {
             const media = await this.#api.readPreview(key);
             if (this.#key !== key) return;
-            this.#url = media.url || null;
-        } catch { this.#url = null; }
+            this.#media = media;
+        } catch { if (this.#key === key) this.#media = null; }
         this.requestUpdate();
     }
     render() {
         const image = this.content?.image;
         const key = this.#api?.mediaKey(image);
         if (key !== this.#key) this.#load(key);
+        const url = this.content?.format === true ? this.#media?.svgUrl : this.#media?.url;
         const caption = this.content?.caption;
         const body = !this.#api ? html`<p class="note">${this.#apiError ? 'The diagram is unavailable.' : 'Loading the diagram…'}</p>`
             : !key ? html`<p class="note">Choose or create a diagram.</p>`
-            : this.#url ? html`<img src=${this.#url} alt=${this.content?.altText || caption || ''}>`
-            : html`<p class="note">${this.#url === null ? 'The diagram is unavailable.' : 'Loading the diagram…'}</p>`;
+            : url ? html`<img src=${url} alt=${this.content?.altText || caption || ''}>`
+            : html`<p class="note">${this.#media !== undefined ? 'The diagram is unavailable.' : 'Loading the diagram…'}</p>`;
         const edit = this.config?.showContentEdit ? this.config.editContentPath : undefined;
         return html`<a class="block" href=${edit ?? nothing} aria-label=${this.label || 'Diagram'}>
             <span class="name"><umb-icon .name=${this.icon || 'icon-diagram'}></umb-icon> ${this.label || 'Diagram'}

@@ -42,23 +42,29 @@ export async function diagramBlob(response) {
         throw error;
     } finally { reader?.releaseLock(); }
 }
+// The authenticated media API supplies the editor's source URL. Media providers can serve it from another origin.
+async function originalFile(url, headers = {}) {
+    const response = await fetch(url, {headers, cache:'reload', redirect:'error'});
+    if (!response.ok) throw Error(`Cannot load the diagram (${response.status}).`);
+    return diagramBlob(response);
+}
+export function drawingXml(xml) {
+    const document = new DOMParser().parseFromString(xml, 'application/xml');
+    if (!['mxfile', 'mxGraphModel'].includes(document.documentElement.localName) || document.querySelector('parsererror'))
+        throw Error('The file is not a draw.io diagram.');
+    return xml;
+}
+export async function drawingSource(url) {
+    const file = await originalFile(url, {Accept:'application/xml'});
+    return {xml:drawingXml(await file.text())};
+}
 export async function websiteDiagram(source) {
     const url = new URL(source, location.href);
     if (url.origin !== location.origin || !/\.(png|svg|drawio|xml|jpe?g|gif|webp)$/i.test(url.pathname))
         throw Error('Choose an image or .drawio file on this website.');
-    // Ask for the original file at its normal URL, preserving the host's access checks and query parameters.
-    const headers = /\.drawio$/i.test(url.pathname) ? {Accept:'application/xml'} : {};
-    const response = await fetch(url, {headers, cache:'reload', redirect:'error'});
-    if (!response.ok) throw Error(`Cannot load the diagram (${response.status}).`);
-    const blob = await diagramBlob(response);
     const extension = url.pathname.split('.').pop().toLowerCase();
-    if (extension === 'drawio' || extension === 'xml') {
-        const xml = await blob.text();
-        const document = new DOMParser().parseFromString(xml, 'application/xml');
-        if (!['mxfile', 'mxGraphModel'].includes(document.documentElement.localName) || document.querySelector('parsererror'))
-            throw Error('The file is not a draw.io diagram.');
-        return {xml};
-    }
+    if (extension === 'drawio' || extension === 'xml') return drawingSource(url);
+    const blob = await originalFile(url);
     if (extension === 'svg') {
         const xml = await blob.text();
         const document = new DOMParser().parseFromString(xml, 'image/svg+xml');
@@ -79,19 +85,6 @@ export async function websiteDiagram(source) {
     const geometry = cell.firstElementChild;
     geometry.setAttribute('width', picture.naturalWidth); geometry.setAttribute('height', picture.naturalHeight);
     return {xml:new XMLSerializer().serializeToString(xml)};
-}
-export async function originalPng(url) {
-    const response = await fetch(url, {cache:'reload'});
-    if (!response.ok) throw Error('The original diagram could not be loaded.');
-    const blob = await diagramBlob(response);
-    const data = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(Error('Could not read the original diagram.'));
-        reader.readAsDataURL(new Blob([blob], {type:'image/png'}));
-    });
-    editableBytes(data);
-    return data;
 }
 export function editableBytes(data) {
     if (typeof data !== 'string' || !data.startsWith(prefix) || data.length - prefix.length > 4 * Math.ceil(maxBytes / 3))

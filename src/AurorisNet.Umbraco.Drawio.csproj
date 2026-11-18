@@ -29,7 +29,7 @@
     <PackageReference Include="Umbraco.Cms.Web.Website" />
     <InternalsVisibleTo Include="AurorisNet.Umbraco.Drawio.Tests" />
     <InternalsVisibleTo Include="Drawio.Selfhosted" />
-    <EmbeddedResource Include="Migrations\package.xml" LogicalName="Drawio.Migrations.package.xml" />
+    <EmbeddedResource Include="package.xml" />
     <!-- nuget.org renders the repository README as well, so it uses plain Markdown and absolute links. -->
     <None Include="../README.md" Pack="true" PackagePath="/" />
     <None Include="../docs/images/icon.png" Pack="true" PackagePath="/" />

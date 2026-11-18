@@ -24,6 +24,9 @@ internal static class UmbracoCompatibility
         builder.AddNotificationHandler<ContentPublishedNotification, UmbracoNotifications>();
         builder.AddNotificationHandler<ContentDeletedVersionsNotification, UmbracoNotifications>();
         builder.AddNotificationHandler<ContentDeletingNotification, UmbracoNotifications>();
+        builder.AddNotificationHandler<MediaMovingToRecycleBinNotification, DiagramMediaFolder>();
+        builder.AddNotificationHandler<MediaDeletingNotification, DiagramMediaFolder>();
+        builder.AddNotificationHandler<MediaEmptyingRecycleBinNotification, DiagramMediaFolder>();
     }
 }
 

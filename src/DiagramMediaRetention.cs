@@ -63,7 +63,7 @@ internal sealed class DiagramMediaRetention(IUmbracoApi cms, IOptionsMonitor<Dra
 
     private HashSet<int> Prune(int contentId)
     {
-        if (!cms.RetentionRelationTypeExists) return []; // The installation migration has not run yet.
+        if (!cms.RetentionRelationTypeExists) return []; // Package installation has not finished yet.
         var existing = cms.GetRetentionRelations(contentId);
         var retained = cms.GetRetainedMedia(contentId).Where(IsDiagramImage).Select(image => image.Id).ToHashSet();
         var previous = existing.Select(relation => relation.MediaId).ToHashSet();
@@ -72,10 +72,10 @@ internal sealed class DiagramMediaRetention(IUmbracoApi cms, IOptionsMonitor<Dra
         return previous.Except(retained).ToHashSet();
     }
 
-    private static bool IsDiagramImage(DiagramMedia image) => image.IsImage && IsDiagramFile(image.Path, image.Key);
+    private static bool IsDiagramImage(DiagramMedia image) => image.IsDiagram && IsDiagramFile(image.Path, image.Key);
 
     internal static bool IsDiagramFile(string? path, Guid key) => path is not null
-        && path.EndsWith($"/diagram-{key:N}.png", StringComparison.OrdinalIgnoreCase);
+        && path.EndsWith($"/diagram-{key:N}.drawio", StringComparison.OrdinalIgnoreCase);
 
     private void RemoveUnreferenced(int mediaId)
     {

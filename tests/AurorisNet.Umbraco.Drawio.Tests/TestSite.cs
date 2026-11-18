@@ -93,7 +93,7 @@ internal sealed class TestSite(WebApplication app, string root, PathString pathB
                 .WithEndpoints(u => { u.UseBackOfficeEndpoints(); u.UseWebsiteEndpoints(); });
             app.MapControllers();
             await app.StartAsync(cancellationToken);
-            // Umbraco installs, then runs package migrations, in a hosted service after startup.
+            // Some CMS versions finish database setup in a hosted service after startup.
             var installer = app.Services.GetServices<IHostedService>().OfType<BackgroundService>()
                 .SingleOrDefault(service => service.GetType().Name == "UnattendedUpgradeBackgroundService");
             if (installer?.ExecuteTask is { } installation)

@@ -1,7 +1,6 @@
 using System.Net;
 using System.Text.RegularExpressions;
 using Drawio;
-using Drawio.Migrations;
 using Microsoft.AspNetCore.Mvc;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.IO;
@@ -64,7 +63,7 @@ public sealed partial class SiteTests
         var types = Site.Services.GetRequiredService<IDataTypeService>();
         var legacy = new ContentType(strings, Constants.System.Root) { Alias = "legacyDiagram", Name = "Legacy Diagram", IsElement = true };
         var integer = (await types.GetByEditorAliasAsync("Umbraco.Integer")).First();
-        var imageType = await types.GetAsync(ImportDiagramElementType.DataTypeKey);
+        var imageType = await types.GetAsync(DrawioInstallation.DataTypeKey);
         var linkType = await types.GetAsync(new Guid("fa7f0a64-4d45-49b6-9d8c-7ab98e9bf391"));
         legacy.AddPropertyType(new PropertyType(strings, integer, "clickAction") { Name = "Click action" });
         legacy.AddPropertyType(new PropertyType(strings, imageType!, "image") { Name = "Image" });
@@ -83,6 +82,59 @@ public sealed partial class SiteTests
             Assert.Equal(action == 0, html.Contains("/draw/viewer?url="));
             Assert.Equal(action == 1, html.Contains("href=\"/original\""));
             Assert.Equal(action is 0 or 1, html.Contains("<a "));
+        }
+    }
+
+    [Fact]
+    public async Task Blocks_share_the_source_and_clickable_regions_but_select_their_own_image_format()
+    {
+        var page = await DiagramPage("renderDiagramFormats");
+        var map = """
+            {"viewBox":"0 0 40 20","links":[
+              {"href":"/room","label":"Room A","shapes":[{"d":"M 0 0 H 12 V 8 Z","transform":"rotate(12)"}]},
+              {"href":"javascript:alert(1)","shapes":[{"d":"M 1 1 L 10 10"}]}]}
+            """;
+        var image = DiagramImage(map: map);
+        var content = Site.Services.GetRequiredService<IContentService>();
+        foreach (var format in new bool?[] { null, true, false })
+        {
+            Pick(page, image, openInViewer: true, svg: format);
+            Assert.True(content.Save(page).Success);
+            Assert.True(content.Publish(page, ["*"]).Success);
+            var html = await Http.GetStringAsync($"/test/diagram/{page.Id}", Cancel);
+            var src = WebUtility.HtmlDecode(Regex.Match(html, "<img src=\"([^\"]+)\"").Groups[1].Value);
+            Assert.EndsWith(format == true ? ".svg" : ".png", new Uri(Site.Address, src).AbsolutePath);
+            Assert.Equal(format == true, html.Contains("data-inline-svg=\"true\""));
+            Assert.Equal(format == true, html.Contains("/App_Plugins/AurorisNet.Drawio/inline-svg.js"));
+            using var file = await Http.GetAsync(src, Cancel);
+            Assert.Equal(HttpStatusCode.OK, file.StatusCode);
+            Assert.Contains(".drawio", html);
+            Assert.Contains("viewBox=\"0 0 40 20\"", html);
+            Assert.Contains("href=\"/room\" aria-label=\"Room A\"", html);
+            Assert.Contains("transform=\"rotate(12)\"", html);
+            Assert.DoesNotContain("javascript:", html);
+        }
+    }
+
+    [Fact]
+    public async Task The_figure_appends_the_blocks_CSS_classes_as_an_encoded_attribute()
+    {
+        var page = await DiagramPage("renderDiagramClasses");
+        var image = DiagramImage();
+        var content = Site.Services.GetRequiredService<IContentService>();
+        foreach (var (value, expected) in new (string?, string)[]
+        {
+            (null, "drawio-diagram"),
+            ("   ", "drawio-diagram"),
+            ("  floor-plan wide  ", "drawio-diagram floor-plan wide"),
+            ("map\" title=\"outside", "drawio-diagram map&quot; title=&quot;outside")
+        })
+        {
+            Pick(page, image, cssClass: value);
+            Assert.True(content.Save(page).Success);
+            Assert.True(content.Publish(page, ["*"]).Success);
+            var html = await Http.GetStringAsync($"/test/diagram/{page.Id}", Cancel);
+            Assert.Contains($"<figure class=\"{expected}\">", html);
         }
     }
 

@@ -107,16 +107,20 @@ internal abstract class UmbracoApi(IServiceProvider services) : IUmbracoApi
         var action = legacy
             ? (element.HasValue("clickAction") ? (DiagramClickAction)element.Value<int>("clickAction") : DiagramClickAction.None)
             : element.Value<bool>("openInViewer") ? DiagramClickAction.Viewer : DiagramClickAction.Link;
-        return new(image?.Content.GetCropUrl(cacheBuster: true), image?.MediaUrl(),
-            element.Value<string>("caption"), element.Value<string>("altText"), action,
+        var content = image?.Content;
+        var inlineSvg = element.Value<bool>("format");
+        var imageProperty = inlineSvg ? "drawioSvg" : Constants.Conventions.Media.File;
+        var imageUrl = content?.GetCropUrl(propertyAlias: imageProperty, cacheBuster: true);
+        return new(imageUrl, inlineSvg, content?.MediaUrl(propertyAlias: "drawioSource"), content?.Value<string>("drawioMap"),
+            element.Value<string>("caption"), element.Value<string>("altText"), element.Value<string>("cssClass"), action,
             link?.Url, link?.Target, link?.Name,
             services.GetRequiredService<UmbracoHelper>().GetDictionaryValueOrDefault("Drawio.OpenDiagram", "Open diagram"));
     }
 
     private DiagramMedia ToMedia(IMedia item)
     {
-        item.TryGetMediaPath(Constants.Conventions.Media.File, urls, out var path);
-        return new(item.Id, item.Key, path, item.ContentType.Alias == Constants.Conventions.MediaTypes.Image);
+        item.TryGetMediaPath("drawioSource", urls, out var path);
+        return new(item.Id, item.Key, path, item.ContentType.Key == DrawioInstallation.MediaTypeKey);
     }
 
     private sealed class PendingCleanup

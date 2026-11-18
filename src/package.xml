@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Imported by Umbraco's package service on first installation. -->
+<umbPackage>
+  <info>
+    <package>
+      <name>AurorisNet.Umbraco.Drawio</name>
+    </package>
+  </info>
+  <DataTypes>
+    <DataType Definition="fa7f0a64-4d45-49b6-9d8c-7ab98e9bf391" Name="Diagram destination" Id="Umbraco.MultiUrlPicker"
+              EditorUiAlias="Umb.PropertyEditorUi.MultiUrlPicker" DatabaseType="Ntext" Folders="Diagrams"
+              Configuration="{&quot;maxNumber&quot;:1}" />
+    <DataType Definition="aa1dea3c-edb0-4b52-91a0-4bc6dc63f4a1" Name="Diagram display format" Id="Umbraco.TrueFalse"
+              EditorUiAlias="Umb.PropertyEditorUi.Toggle" DatabaseType="Integer" Folders="Diagrams"
+              Configuration="{&quot;default&quot;:false,&quot;showLabels&quot;:true,&quot;labelOff&quot;:&quot;PNG&quot;,&quot;labelOn&quot;:&quot;SVG&quot;}" />
+    <DataType Definition="651478d8-a2d3-432b-8b1f-9bedc0ad7c36" Name="Diagram source file" Id="Umbraco.UploadField"
+              EditorUiAlias="Umb.PropertyEditorUi.UploadField" DatabaseType="Nvarchar" Folders="Diagrams"
+              Configuration="{&quot;fileExtensions&quot;:[&quot;drawio&quot;]}" />
+    <DataType Definition="3ab7c43f-4ccd-4f95-bf81-adba6790f500" Name="Diagram picker" Id="Umbraco.MediaPicker3"
+              EditorUiAlias="AurorisNet.Drawio.Editor" DatabaseType="Ntext" Folders="Diagrams"
+              Configuration="{&quot;filter&quot;:&quot;0c4c6e74-02f5-43cb-92f5-36e3402a693b&quot;,&quot;multiple&quot;:false,&quot;validationLimit&quot;:{&quot;min&quot;:0,&quot;max&quot;:1}}" />
+  </DataTypes>
+  <MediaTypes>
+    <MediaType>
+      <Info>
+        <Name>Diagram</Name><Alias>drawioDiagramMedia</Alias><Key>0c4c6e74-02f5-43cb-92f5-36e3402a693b</Key>
+        <Icon>icon-diagram</Icon><Thumbnail>folder.png</Thumbnail>
+        <Description>The source drawing, PNG and SVG exports, and linked shapes.</Description>
+        <AllowAtRoot>True</AllowAtRoot>
+      </Info>
+      <Structure />
+      <GenericProperties>
+        <GenericProperty>
+          <Key>8ac52630-9563-45f0-8604-56225ef8396a</Key><Name>Editable PNG</Name><Alias>umbracoFile</Alias>
+          <Type>Umbraco.ImageCropper</Type><Definition>1df9f033-e6d4-451f-b8d2-e0cbc50a836f</Definition>
+          <Mandatory>True</Mandatory><SortOrder>0</SortOrder><Tab Alias="diagram">Diagram</Tab>
+        </GenericProperty>
+        <GenericProperty>
+          <Key>3cc3e076-be3e-407d-baba-de7e482ba593</Key><Name>Drawing</Name><Alias>drawioSource</Alias>
+          <Type>Umbraco.UploadField</Type><Definition>651478d8-a2d3-432b-8b1f-9bedc0ad7c36</Definition>
+          <Mandatory>True</Mandatory><SortOrder>1</SortOrder><Tab Alias="diagram">Diagram</Tab>
+        </GenericProperty>
+        <GenericProperty>
+          <Key>ee5155c0-4650-44d3-8523-5d3416ac4d62</Key><Name>SVG</Name><Alias>drawioSvg</Alias>
+          <Type>Umbraco.UploadField</Type><Definition>215cb418-2153-4429-9aef-8c0f0041191b</Definition>
+          <Mandatory>True</Mandatory><SortOrder>2</SortOrder><Tab Alias="diagram">Diagram</Tab>
+        </GenericProperty>
+        <GenericProperty>
+          <Key>201a12ad-9aab-4479-a2a4-736ca7ed179c</Key><Name>Clickable regions</Name><Alias>drawioMap</Alias>
+          <Type>Umbraco.TextArea</Type><Definition>c6bac0dd-4ab9-45b1-8e30-e4b619ee5da3</Definition>
+          <Description>Generated from linked shapes when the drawing is saved.</Description>
+          <Mandatory>False</Mandatory><SortOrder>3</SortOrder><Tab Alias="diagram">Diagram</Tab>
+        </GenericProperty>
+      </GenericProperties>
+      <Tabs><Tab><Key>91f2bc04-2a3d-4144-9342-41294df99b0f</Key><Caption>Diagram</Caption><Alias>diagram</Alias><Type>Group</Type><SortOrder>0</SortOrder></Tab></Tabs>
+    </MediaType>
+  </MediaTypes>
+  <DocumentTypes>
+    <DocumentType Folders="Diagrams">
+      <Info>
+        <Name>Diagram</Name>
+        <Alias>drawioDiagram</Alias>
+        <Key>d8370e51-e3bb-449a-944f-cf4678bcbfb3</Key>
+        <Icon>icon-diagram</Icon>
+        <Thumbnail>folder.png</Thumbnail>
+        <Description>A draw.io diagram with a preview, clickable regions and a caption.</Description>
+        <AllowAtRoot>False</AllowAtRoot>
+        <IsListView>False</IsListView>
+        <IsElement>True</IsElement>
+        <Variations>Nothing</Variations>
+        <Compositions />
+        <DefaultTemplate />
+        <AllowedTemplates />
+      </Info>
+      <Structure />
+      <GenericProperties>
+        <GenericProperty>
+          <Key>ff3f6188-08fa-44b1-a6c3-eda8507a37de</Key><Name>Format</Name><Alias>format</Alias>
+          <Definition>aa1dea3c-edb0-4b52-91a0-4bc6dc63f4a1</Definition><Type>Umbraco.TrueFalse</Type>
+          <Mandatory>False</Mandatory><Description>Defaults to PNG. Choose SVG for links on individual words and styling inside the drawing with page CSS.</Description>
+          <SortOrder>1</SortOrder><Tab Alias="content">Content</Tab><Variations>Nothing</Variations>
+        </GenericProperty>
+        <GenericProperty>
+          <Key>50f2e655-5c73-45bb-9be6-22db4a7d7813</Key><Name>Open in Viewer</Name><Alias>openInViewer</Alias>
+          <Definition>92897bc6-a5f3-4ffe-ae27-f2e7e33dda49</Definition><Type>Umbraco.TrueFalse</Type>
+          <Mandatory>False</Mandatory><Validation /><Description>Open the diagram in a new tab when selected.</Description>
+          <SortOrder>4</SortOrder><Tab Alias="content">Content</Tab><Variations>Nothing</Variations><LabelOnTop>False</LabelOnTop>
+        </GenericProperty>
+        <GenericProperty>
+          <Key>dfde4f1c-9d45-4607-ac1f-c8da00572546</Key><Name>Link</Name><Alias>link</Alias>
+          <Definition>fa7f0a64-4d45-49b6-9d8c-7ab98e9bf391</Definition><Type>Umbraco.MultiUrlPicker</Type>
+          <Mandatory>False</Mandatory><Validation /><Description>Optional destination when Open in Viewer is off.</Description>
+          <SortOrder>5</SortOrder><Tab Alias="content">Content</Tab><Variations>Nothing</Variations><LabelOnTop>False</LabelOnTop>
+        </GenericProperty>
+        <GenericProperty>
+          <Key>07d49c88-ae9b-4437-8e13-33e683bfe580</Key>
+          <Name>Diagram</Name>
+          <Alias>image</Alias>
+          <Definition>3ab7c43f-4ccd-4f95-bf81-adba6790f500</Definition>
+          <Type>Umbraco.MediaPicker3</Type>
+          <Mandatory>False</Mandatory>
+          <Validation />
+          <Description>Create a diagram or edit the selected media item. Saving an edit updates the drawing wherever it is used.</Description>
+          <SortOrder>0</SortOrder>
+          <Tab Alias="content">Content</Tab>
+          <Variations>Nothing</Variations>
+          <LabelOnTop>False</LabelOnTop>
+        </GenericProperty>
+        <GenericProperty>
+          <Key>2a2b7b3e-ef65-42d5-b70e-3bdc5e29cdb6</Key>
+          <Name>Caption</Name>
+          <Alias>caption</Alias>
+          <Definition>0cc0eba1-9960-42c9-bf9b-60e150b429ae</Definition>
+          <Type>Umbraco.TextBox</Type>
+          <Mandatory>False</Mandatory>
+          <Validation />
+          <Description />
+          <SortOrder>2</SortOrder>
+          <Tab Alias="content">Content</Tab>
+          <Variations>Nothing</Variations>
+          <LabelOnTop>False</LabelOnTop>
+        </GenericProperty>
+        <GenericProperty>
+          <Key>e05cf9d3-9df8-4f82-b5dd-ff080b0f5213</Key>
+          <Name>Alternative text</Name>
+          <Alias>altText</Alias>
+          <Definition>0cc0eba1-9960-42c9-bf9b-60e150b429ae</Definition>
+          <Type>Umbraco.TextBox</Type>
+          <Mandatory>False</Mandatory>
+          <Validation />
+          <Description>Describes the diagram for screen readers. Leave it empty to use the caption.</Description>
+          <SortOrder>3</SortOrder>
+          <Tab Alias="content">Content</Tab>
+          <Variations>Nothing</Variations>
+          <LabelOnTop>False</LabelOnTop>
+        </GenericProperty>
+        <GenericProperty>
+          <Key>e357eec8-92a5-4bb2-b0c5-51c00244069a</Key><Name>CSS class</Name><Alias>cssClass</Alias>
+          <Definition>0cc0eba1-9960-42c9-bf9b-60e150b429ae</Definition><Type>Umbraco.TextBox</Type>
+          <Mandatory>False</Mandatory><Description>Classes to add to the diagram figure. Separate multiple names with spaces.</Description>
+          <SortOrder>6</SortOrder><Tab Alias="content">Content</Tab><Variations>Nothing</Variations>
+        </GenericProperty>
+      </GenericProperties>
+      <Tabs>
+        <Tab>
+          <Key>34d5042f-eed0-402f-8fdb-76441c8c39e7</Key>
+          <Caption>Content</Caption>
+          <Alias>content</Alias>
+          <Type>Group</Type>
+          <SortOrder>0</SortOrder>
+        </Tab>
+      </Tabs>
+    </DocumentType>
+  </DocumentTypes>
+  <MediaItems>
+    <MediaSet>
+      <Folder key="3ff1e030-bba1-4f59-bde9-e5f9131be6f1" nodeName="diagrams" level="1" sortOrder="0" isDoc="" />
+    </MediaSet>
+  </MediaItems>
+</umbPackage>

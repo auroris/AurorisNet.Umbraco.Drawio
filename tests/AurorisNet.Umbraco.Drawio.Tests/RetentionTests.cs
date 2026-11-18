@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Drawio;
 using Drawio.Compatibility;
-using Drawio.Migrations;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.IO;
 using Umbraco.Cms.Core.Models;
@@ -199,7 +198,7 @@ public sealed partial class SiteTests
             Name = alias + " blocks", EditorUiAlias = "Umb.PropertyEditorUi.BlockList",
             ConfigurationData = new Dictionary<string, object>
             {
-                ["blocks"] = new[] { new { contentElementTypeKey = elementType ?? ImportDiagramElementType.ElementTypeKey } }
+                ["blocks"] = new[] { new { contentElementTypeKey = elementType ?? DrawioInstallation.ElementTypeKey } }
             }
         };
         Assert.True((await services.GetRequiredService<IDataTypeService>().CreateAsync(dataType, Constants.Security.SuperUserKey)).Success);
@@ -210,28 +209,40 @@ public sealed partial class SiteTests
         return new Content(alias, Constants.System.Root, type);
     }
 
-    private IMedia DiagramImage(bool owned = true)
+    private IMedia DiagramImage(bool owned = true, string? map = null)
     {
         var service = Site.Services.GetRequiredService<IMediaService>();
-        var image = service.CreateMedia("Diagram", Constants.System.Root, Constants.Conventions.MediaTypes.Image);
+        var image = service.CreateMedia("Diagram", Constants.System.Root, owned ? DrawioInstallation.MediaTypeAlias : Constants.Conventions.MediaTypes.Image);
         var name = owned ? $"diagram-{image.Key:N}.png" : "photo.png";
         image.SetValue(Site.Services.GetRequiredService<MediaFileManager>(), Site.Services.GetRequiredService<MediaUrlGeneratorCollection>(),
             Site.Services.GetRequiredService<IShortStringHelper>(), Site.Services.GetRequiredService<IContentTypeBaseServiceProvider>(),
             Constants.Conventions.Media.File, name, new MemoryStream(Png));
+        if (owned)
+        {
+            void SetFile(string alias, string extension, string value) =>
+                image.SetValue(Site.Services.GetRequiredService<MediaFileManager>(), Site.Services.GetRequiredService<MediaUrlGeneratorCollection>(),
+                    Site.Services.GetRequiredService<IShortStringHelper>(), Site.Services.GetRequiredService<IContentTypeBaseServiceProvider>(),
+                    alias, $"diagram-{image.Key:N}.{extension}", new MemoryStream(System.Text.Encoding.UTF8.GetBytes(value)));
+            SetFile("drawioSource", "drawio", "<mxfile><diagram/></mxfile>");
+            SetFile("drawioSvg", "svg", """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20"/>""");
+            image.SetValue("drawioMap", map);
+        }
         Assert.True(service.Save(image).Success);
         return image;
     }
 
     private static void Pick(IContent item, IMedia image, bool? openInViewer = null, object[]? link = null,
-        Guid? legacyType = null, int? legacyAction = null)
+        Guid? legacyType = null, int? legacyAction = null, bool? svg = null, string? cssClass = null)
     {
         var key = Guid.NewGuid();
         item.SetValue("diagrams", JsonSerializer.Serialize(new
         {
             layout = new Dictionary<string, object> { ["Umbraco.BlockList"] = new[] { new { contentKey = key } } },
-            contentData = new[] { new { key, contentTypeKey = legacyType ?? ImportDiagramElementType.ElementTypeKey, values = new object[]
+            contentData = new[] { new { key, contentTypeKey = legacyType ?? DrawioInstallation.ElementTypeKey, values = new object[]
             {
                 new { alias = "image", culture = (string?)null, segment = (string?)null, editorAlias = "Umbraco.MediaPicker3", value = new[] { new { key = Guid.NewGuid(), mediaKey = image.Key } } },
+                new { alias = "format", culture = (string?)null, segment = (string?)null, editorAlias = "Umbraco.TrueFalse", value = svg },
+                new { alias = "cssClass", culture = (string?)null, segment = (string?)null, editorAlias = "Umbraco.TextBox", value = cssClass },
                 legacyType.HasValue
                     ? (object)new { alias = "clickAction", culture = (string?)null, segment = (string?)null, editorAlias = "Umbraco.Integer", value = legacyAction }
                     : new { alias = "openInViewer", culture = (string?)null, segment = (string?)null, editorAlias = "Umbraco.TrueFalse", value = openInViewer },
@@ -245,11 +256,19 @@ public sealed partial class SiteTests
     private void AssertMediaExists(IMedia image)
     {
         Assert.NotNull(Site.Services.GetRequiredService<IMediaService>().GetById(image.Key));
-        Assert.True(Site.Services.GetRequiredService<MediaFileManager>().FileSystem.FileExists(ImagePath(image)));
+        var storage = Site.Services.GetRequiredService<MediaFileManager>().FileSystem;
+        Assert.True(storage.FileExists(ImagePath(image)));
+        if (image.ContentType.Key == DrawioInstallation.MediaTypeKey)
+            foreach (var alias in new[] { "drawioSource", "drawioSvg" })
+                Assert.True(storage.FileExists(image.GetValue<string>(alias)!["/media/".Length..]));
     }
     private void AssertMediaDeleted(IMedia image)
     {
         Assert.Null(Site.Services.GetRequiredService<IMediaService>().GetById(image.Key));
-        Assert.False(Site.Services.GetRequiredService<MediaFileManager>().FileSystem.FileExists(ImagePath(image)));
+        var storage = Site.Services.GetRequiredService<MediaFileManager>().FileSystem;
+        Assert.False(storage.FileExists(ImagePath(image)));
+        if (image.ContentType.Key == DrawioInstallation.MediaTypeKey)
+            foreach (var alias in new[] { "drawioSource", "drawioSvg" })
+                Assert.False(storage.FileExists(image.GetValue<string>(alias)!["/media/".Length..]));
     }
 }

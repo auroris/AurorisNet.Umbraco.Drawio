@@ -1,4 +1,3 @@
-using Drawio.Migrations;
 using Drawio.Compatibility;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.StaticFiles;
@@ -7,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
+using Umbraco.Cms.Core.Notifications;
 using Umbraco.Cms.Web.Common.ApplicationBuilder;
 using Umbraco.Extensions;
 
@@ -24,7 +24,7 @@ public static class DrawioBuilderExtensions
 {
     /// <summary>
     /// Adds the editor and viewer under <c>/draw/</c>, the media proxy and redirect, diagram media retention and the
-    /// migration that installs the diagram element type. Calling it again changes nothing.
+    /// diagram definitions and upload folder. Calling it again changes nothing.
     /// </summary>
     public static IUmbracoBuilder AddDrawio(this IUmbracoBuilder builder)
     {
@@ -42,7 +42,7 @@ public static class DrawioBuilderExtensions
             options.AddFilter(new UmbracoPipelineFilter("Drawio") { PrePipeline = DrawioHosting.Use }));
         builder.Services.AddTransient<DiagramMediaRetention>();
         UmbracoCompatibility.Register(builder);
-        builder.PackageMigrationPlans().Add<DrawioMigrationPlan>();
+        builder.AddNotificationAsyncHandler<UmbracoApplicationStartingNotification, DrawioInstallation>();
         return builder;
     }
 

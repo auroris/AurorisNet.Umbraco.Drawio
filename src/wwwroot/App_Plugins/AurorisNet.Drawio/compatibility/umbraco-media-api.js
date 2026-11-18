@@ -1,5 +1,4 @@
 const folderTypeId = 'f38bd2d7-65d0-48e6-95dc-87ce06ec2d3d';
-const folderName = 'drawio';
 
 function imageFileValue(value) {
     if (typeof value !== 'string') return value;
@@ -8,15 +7,16 @@ function imageFileValue(value) {
 
 /**
  * The backoffice media contract used by the diagram editor and preview.
- * Reads return {url, name, parent}; writes accept package-owned IDs and browser Files.
+ * Resolves the drawing and its two images and saves all three through native media properties.
  * Native API payloads, picker values and media-property parsing stay inside this module.
  */
 class UmbracoMediaApi {
-    constructor(host, services) {
+    constructor(host, services, diagramFolderId) {
         this.services = services;
         this.host = host;
+        this.diagramFolderId = diagramFolderId;
     }
-    get imageTypeIds() { return ['cc07b313-0843-4aa8-bbda-871c8da728c8']; }
+    get diagramTypeIds() { return ['0c4c6e74-02f5-43cb-92f5-36e3402a693b']; }
     mediaKey(value) { return Array.isArray(value) ? value[0]?.mediaKey : value?.mediaKey; }
     pickMedia(id, previous) { return [{key:previous?.[0]?.key || crypto.randomUUID(), mediaKey:id}]; }
     async readMedia(id) {
@@ -28,10 +28,11 @@ class UmbracoMediaApi {
         if (error || !data) throw Error('The diagram is unavailable.');
         const preview = this.normalize(data);
         const updated = data.variants?.[0]?.updateDate;
-        if (preview.url && updated) {
-            const url = new URL(preview.url, document.baseURI);
+        for (const format of ['url', 'svgUrl']) {
+            if (!preview[format] || !updated) continue;
+            const url = new URL(preview[format], document.baseURI);
             url.searchParams.set('rnd', updated);
-            preview.url = url.href;
+            preview[format] = url.href;
         }
         return preview;
     }
@@ -42,40 +43,47 @@ class UmbracoMediaApi {
         return id;
     }
     async findDiagramFolder() {
-        let skip = 0;
-        while (true) {
-            const page = this.check(await this.services.MediaService.getTreeMediaRoot({query:{skip, take:100}}),
-                'Umbraco could not read the media library to find the drawio folder.');
-            for (const item of page.items) {
-                if (!item.parent && !item.isTrashed && item.mediaType.id === folderTypeId
-                    && item.variants[0]?.name?.toLowerCase() === folderName) return item.id;
-            }
-            skip += page.items.length;
-            if (skip >= page.total || !page.items.length) break;
-        }
-        return null;
+        const result = await this.services.MediaService.getMediaById({path:{id:this.diagramFolderId}});
+        if (result.response?.status === 404 || result.response?.status === 403) return null;
+        const folder = this.check(result, 'Umbraco could not read the diagram upload folder.');
+        return !folder.isTrashed && folder.mediaType.id === folderTypeId ? folder.id : null;
     }
-    async createImage({id, temporaryFileId, parent, name}) {
+    diagramValues({png, source, svg, map}, previous = []) {
+        const values = previous.slice();
+        const set = (alias, editorAlias, value) => {
+            const index = values.findIndex(property => property.alias === alias && !property.culture && !property.segment);
+            const property = {alias, editorAlias, culture:null, segment:null, value};
+            if (index < 0) values.push(property);
+            else values[index] = property;
+        };
+        // Umbraco's upload field interprets a missing src on an existing file as a request to clear it.
+        const file = (alias, editor, temporaryFileId) => {
+            const current = previous.find(property => property.alias === alias);
+            set(alias, editor, {...imageFileValue(current?.value), temporaryFileId});
+        };
+        file('umbracoFile', 'Umbraco.ImageCropper', png);
+        file('drawioSource', 'Umbraco.UploadField', source);
+        file('drawioSvg', 'Umbraco.UploadField', svg);
+        set('drawioMap', 'Umbraco.TextArea', map);
+        return values;
+    }
+    async createDiagram({id, files, parent, name}) {
         const folder = parent ?? await this.findDiagramFolder();
         this.check(await this.services.MediaService.postMedia({body:{id, parent:folder ? {id:folder} : null,
-            mediaType:{id:this.imageTypeIds[0]}, variants:[{name:name?.trim() || 'diagram', culture:null, segment:null}],
-            values:[{alias:'umbracoFile', editorAlias:'Umbraco.ImageCropper', culture:null, segment:null, value:{temporaryFileId}}]}}),
-            'Umbraco could not create the diagram media. Your original is unchanged.');
+            mediaType:{id:this.diagramTypeIds[0]}, variants:[{name:name?.trim() || 'diagram', culture:null, segment:null}],
+            values:this.diagramValues(files)}}), 'Umbraco could not create the diagram media.');
     }
-    async updateImage(id, temporaryFileId) {
+    async updateDiagram(id, files) {
         const path = {id};
         const media = this.check(await this.services.MediaService.getMediaById({path}), 'Cannot read the selected media.');
-        const file = media.values.find(property => property.alias === 'umbracoFile');
-        if (!file) throw Error('The selected media has no file property.');
-        const values = media.values.map(property => property === file
-            ? {...file, value:{...imageFileValue(file.value), temporaryFileId}} : property);
         const variants = media.variants.map(({name, culture, segment}) => ({name, culture, segment}));
-        this.check(await this.services.MediaService.putMediaById({path, body:{variants, values}}),
+        this.check(await this.services.MediaService.putMediaById({path, body:{variants, values:this.diagramValues(files, media.values)}}),
             'Umbraco could not update the diagram media.');
     }
     normalize(media) {
-        const file = media.values?.find(value => value.alias === 'umbracoFile');
-        return {url:imageFileValue(file?.value)?.src, name:media.variants?.[0]?.name, parent:media.parent?.id};
+        const url = alias => imageFileValue(media.values?.find(property => property.alias === alias)?.value)?.src;
+        return {url:url('umbracoFile'), sourceUrl:url('drawioSource'), svgUrl:url('drawioSvg'),
+            name:media.variants?.[0]?.name, parent:media.parent?.id};
     }
     check(result, message) {
         if (result?.error || !result?.response?.ok) throw Error(message);
@@ -87,10 +95,10 @@ class UmbracoMediaApi {
 export class Umbraco17MediaApi extends UmbracoMediaApi {}
 export class Umbraco18MediaApi extends UmbracoMediaApi {}
 
-export function createMediaApi(major, host, services) {
+export function createMediaApi(major, host, services, diagramFolderId) {
     switch (major) {
-        case 17: return new Umbraco17MediaApi(host, services);
-        case 18: return new Umbraco18MediaApi(host, services);
+        case 17: return new Umbraco17MediaApi(host, services, diagramFolderId);
+        case 18: return new Umbraco18MediaApi(host, services, diagramFolderId);
         default: throw Error(`draw.io has no tested media adapter for Umbraco ${major}.`);
     }
 }

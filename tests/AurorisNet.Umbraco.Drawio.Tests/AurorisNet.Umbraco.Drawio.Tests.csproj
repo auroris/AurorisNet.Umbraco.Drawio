@@ -14,7 +14,7 @@
     <ProjectReference Include="../../src/AurorisNet.Umbraco.Drawio.csproj" />
     <Using Include="Xunit" />
     <!-- The build files, schema and scripts the package ships, for the tests that check them. -->
-    <None Include="../../selfhosted/build/*;../../src/Migrations/package.xml;../../src/wwwroot/App_Plugins/AurorisNet.Drawio/*"
+    <None Include="../../selfhosted/build/*;../../src/package.xml;../../src/wwwroot/App_Plugins/AurorisNet.Drawio/*"
           Link="package/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

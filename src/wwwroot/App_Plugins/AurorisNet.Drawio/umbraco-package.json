@@ -12,7 +12,7 @@
     {
       "type": "propertyEditorUi",
       "alias": "AurorisNet.Drawio.Editor",
-      "name": "Editable diagram PNG",
+      "name": "Diagram picker",
       "element": "/App_Plugins/AurorisNet.Drawio/editor.js",
       "meta": {
         "label": "Diagram (draw.io)",

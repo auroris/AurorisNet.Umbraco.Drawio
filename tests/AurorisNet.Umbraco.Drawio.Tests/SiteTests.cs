@@ -2,7 +2,6 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Drawio;
-using Drawio.Migrations;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.AspNetCore.Mvc.Razor.Compilation;
 using Umbraco.Cms.Core;
@@ -13,8 +12,6 @@ using Umbraco.Cms.Core.Manifest;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Cms.Core.Services;
 using Umbraco.Cms.Core.Strings;
-using Umbraco.Cms.Infrastructure.Migrations;
-using Umbraco.Cms.Core.Packaging;
 
 namespace AurorisNet.Umbraco.Drawio.Tests;
 
@@ -68,31 +65,36 @@ public sealed partial class SiteTests(SiteFixture fixture) : IClassFixture<SiteF
     private HttpClient Http => fixture.Http;
     private static CancellationToken Cancel => TestContext.Current.CancellationToken;
 
-    /// <summary>Umbraco's package migration installs the data type and element type once, through its package importer.</summary>
+    /// <summary>Umbraco's package importer provisions the diagram definitions and the upload folder.</summary>
     [Fact]
-    public async Task The_package_migration_installs_the_diagram_element_type()
+    public async Task A_fresh_site_has_the_diagram_definitions_and_upload_folder()
     {
-        var plans = Site.Services.GetRequiredService<PackageMigrationPlanCollection>();
-        Assert.Single(plans.OfType<DrawioMigrationPlan>());
-        var state = Site.Services.GetRequiredService<IKeyValueService>().FindByKeyPrefix(Constants.Conventions.Migrations.KeyValuePrefix);
-        Assert.DoesNotContain(DrawioMigrationPlan.Identifier, Site.Services.GetRequiredService<PendingPackageMigrations>().GetPendingPackageMigrations(state));
-
-        var folder = Assert.Single(Site.Services.GetRequiredService<IMediaService>().GetRootMedia(), item => item.Name == "drawio");
+        var folder = Assert.Single(Site.Services.GetRequiredService<IMediaService>().GetRootMedia(), item => item.Key == DiagramMediaFolder.Key);
+        Assert.Equal("diagrams", folder.Name);
         Assert.Equal(Constants.Conventions.MediaTypes.Folder, folder.ContentType.Alias);
+        using var settings = JsonDocument.Parse(await Http.GetStringAsync("/draw/settings", Cancel));
+        Assert.Equal(folder.Key, settings.RootElement.GetProperty("diagramFolderId").GetGuid());
 
-        var dataType = await Site.Services.GetRequiredService<IDataTypeService>().GetAsync(ImportDiagramElementType.DataTypeKey);
+        var dataType = await Site.Services.GetRequiredService<IDataTypeService>().GetAsync(DrawioInstallation.DataTypeKey);
         Assert.NotNull(dataType);
         Assert.Equal(Constants.PropertyEditors.Aliases.MediaPicker3, dataType.EditorAlias);
         Assert.Equal("AurorisNet.Drawio.Editor", dataType.EditorUiAlias);
-        Assert.Equal("cc07b313-0843-4aa8-bbda-871c8da728c8", dataType.ConfigurationData["filter"]?.ToString());
+        Assert.Equal(DrawioInstallation.MediaTypeKey.ToString(), dataType.ConfigurationData["filter"]?.ToString());
 
-        var element = Site.Services.GetRequiredService<IContentTypeService>().Get(ImportDiagramElementType.ElementTypeKey);
+        var mediaType = await Site.Services.GetRequiredService<IMediaTypeService>().GetAsync(DrawioInstallation.MediaTypeKey);
+        Assert.NotNull(mediaType);
+        Assert.Equal(["drawioMap", "drawioSource", "drawioSvg", "umbracoFile"], mediaType.PropertyTypes.Select(p => p.Alias).Order());
+        var element = Site.Services.GetRequiredService<IContentTypeService>().Get(DrawioInstallation.ElementTypeKey);
         Assert.NotNull(element);
         Assert.True(element.IsElement);
-        Assert.Equal(ImportDiagramElementType.ElementTypeAlias, element.Alias);
+        Assert.Equal(DrawioInstallation.ElementTypeAlias, element.Alias);
         Assert.Equal(dataType.Id, element.PropertyTypes.Single(p => p.Alias == "image").DataTypeId);
         Assert.Equal(Constants.PropertyEditors.Aliases.TextBox, element.PropertyTypes.Single(p => p.Alias == "caption").PropertyEditorAlias);
         Assert.Equal(Constants.PropertyEditors.Aliases.TextBox, element.PropertyTypes.Single(p => p.Alias == "altText").PropertyEditorAlias);
+        var format = await Site.Services.GetRequiredService<IDataTypeService>().GetAsync(element.PropertyTypes.Single(p => p.Alias == "format").DataTypeKey);
+        Assert.NotNull(format);
+        Assert.Equal("PNG", format.ConfigurationData["labelOff"].ToString());
+        Assert.Equal("SVG", format.ConfigurationData["labelOn"].ToString());
         var viewer = element.PropertyTypes.Single(p => p.Alias == "openInViewer");
         Assert.Equal("Umbraco.TrueFalse", viewer.PropertyEditorAlias);
         Assert.Equal("Umb.PropertyEditorUi.Toggle", (await Site.Services.GetRequiredService<IDataTypeService>().GetAsync(viewer.DataTypeKey))?.EditorUiAlias);
@@ -105,7 +107,7 @@ public sealed partial class SiteTests(SiteFixture fixture) : IClassFixture<SiteF
     public async Task The_manifest_and_views_are_registered()
     {
         var manifests = await Site.Services.GetRequiredService<IPackageManifestService>().GetAllPackageManifestsAsync();
-        Assert.Contains(manifests, manifest => manifest.Id == DrawioMigrationPlan.Identifier);
+        Assert.Contains(manifests, manifest => manifest.Id == DrawioInstallation.Identifier);
         using var response = await Http.GetAsync(DrawioPaths.Plugin + "/editor.js", Cancel);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 

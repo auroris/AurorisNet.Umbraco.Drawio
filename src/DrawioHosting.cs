@@ -97,6 +97,7 @@ internal static class DrawioHosting
                     {
                         editorUrl = options.IsSelfHosted ? context.Request.PathBase.ToUriComponent() + "/" : "https://embed.diagrams.net/",
                         umbracoMajor = context.RequestServices.GetRequiredService<IUmbracoApi>().MajorVersion,
+                        diagramFolderId = DiagramMediaFolder.Key,
                         configuration = JsonSerializer.Deserialize<JsonElement>(DrawioScripts.Configuration(new(SitePath(context), options)))
                     }, context.RequestAborted);
                     return;

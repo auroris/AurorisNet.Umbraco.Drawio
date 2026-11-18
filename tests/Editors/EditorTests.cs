@@ -37,8 +37,12 @@ public sealed class EditorTests
         const string source = "media/fixture/Floor plan + étage.drawio";
         await File.WriteAllTextAsync(Path.Combine(webRoot, source), """
             <mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>
-            <mxCell id="2" parent="1" vertex="1" value="Editor round trip">
+            <object id="2" label="Editor round trip" link="https://example.org/floor"><mxCell parent="1" vertex="1" style="fillColor=#ffffff;gradientColor=#00aaff;">
               <mxGeometry as="geometry" x="40" y="40" width="180" height="60"/>
+            </mxCell></object>
+            <mxCell id="3" parent="1" vertex="1" style="html=1;whiteSpace=wrap;"
+              value="Read the &lt;a href=&quot;#floor-plan&quot;&gt;floor plan&lt;/a&gt; here">
+              <mxGeometry as="geometry" x="40" y="130" width="180" height="60"/>
             </mxCell></root></mxGraphModel>
             """, cancel);
 
@@ -82,11 +86,69 @@ public sealed class EditorTests
         }
         await page.GotoAsync(EditorPage("saved.drawio"));
         await editor.GetByText("Saved from the editor", new() { Exact = true }).First.WaitForAsync();
+        // Exercise the block editor's export contract against the installed draw.io build.
+        var export = await page.EvaluateAsync<string[]>("""
+            async ({plugin, editorOrigin}) => {
+                const {extractDiagramMap} = await import(plugin + '/diagram-map.js');
+                const {editableBytes} = await import(plugin + '/bridge.js');
+                const frame = document.querySelector('iframe').contentWindow;
+                const result = await new Promise((resolve, reject) => {
+                    const timer = setTimeout(() => reject(Error('Timed out exporting linked drawing')), 30000);
+                    const receive = event => {
+                        if (event.source !== frame || event.origin !== editorOrigin || typeof event.data !== 'string') return;
+                        const message = JSON.parse(event.data);
+                        if (message.event !== 'export') return;
+                        clearTimeout(timer);
+                        window.removeEventListener('message', receive);
+                        resolve(message);
+                    };
+                    window.addEventListener('message', receive);
+                    frame.postMessage(JSON.stringify({action:'export', format:'xmlpng', withSvg:true, currentPage:true, border:0, scale:1}), editorOrigin);
+                });
+                const bytes = new DataView(editableBytes(result.data).buffer);
+                const map = JSON.parse(extractDiagramMap(result.svg));
+                if (map.viewBox !== `0 0 ${bytes.getUint32(16)} ${bytes.getUint32(20)}`) throw Error('PNG and SVG bounds differ');
+                if (!result.xml.includes('<mxfile') || !map.links[0].shapes.length) throw Error('Missing drawing or outline');
+                return [map.links[0].href, result.svg];
+            }
+            """, new { plugin = new Uri(site.Address, "App_Plugins/AurorisNet.Drawio").AbsoluteUri, editorOrigin = editorUrl.GetLeftPart(UriPartial.Authority) });
+        Assert.Equal("https://example.org/floor", export[0]);
         if (selfhosted)
         {
             var frame = page.Frames.Single(f => f.ParentFrame == page.MainFrame);
             Assert.Equal(37, await frame.EvaluateAsync<int>("mxGraph.prototype.gridSize"));
             Assert.Equal("function", await frame.Locator("html").GetAttributeAsync("data-site-post-config"));
         }
+
+        // Render the real export through the site's public module. The same file can appear twice on a page.
+        await File.WriteAllTextAsync(Path.Combine(webRoot, "media", "fixture", "plan.svg"), export[1], cancel);
+        await File.WriteAllTextAsync(Path.Combine(webRoot, "inline.html"), """
+            <!doctype html><style>.floor-plan svg rect { fill: rgb(10, 90, 160); }</style>
+            <figure class="floor-plan"><drawio-diagram-image data-inline-svg="true" style="display:inline-block;position:relative">
+              <a href="#whole-diagram"><img src="media/fixture/plan.svg" alt="Floor plan"></a>
+            </drawio-diagram-image></figure>
+            <drawio-diagram-image data-inline-svg="true"><img src="media/fixture/plan.svg" alt="Second plan"></drawio-diagram-image>
+            <script type="module" src="App_Plugins/AurorisNet.Drawio/inline-svg.js"></script>
+            """, cancel);
+        await page.GotoAsync(new Uri(site.Address, "inline.html").AbsoluteUri);
+        var drawing = page.Locator(".floor-plan drawio-diagram-image > svg");
+        var words = drawing.GetByRole(AriaRole.Link, new() { Name = "floor plan", Exact = true });
+        await words.ClickAsync();
+        Assert.EndsWith("#floor-plan", page.Url);
+        Assert.Equal("rgb(10, 90, 160)", await drawing.Locator("rect").First.EvaluateAsync<string>("el => getComputedStyle(el).fill"));
+        await Assertions.Expect(page.Locator("drawio-diagram-image > svg")).ToHaveCountAsync(2);
+        var gradients = await page.Locator("drawio-diagram-image > svg").EvaluateAllAsync<string[]>("""
+            svgs => svgs.map(svg => {
+                const fill = svg.querySelector('rect[fill^="url("]').getAttribute('fill');
+                const gradient = svg.querySelector('linearGradient');
+                if (fill !== 'url(#' + gradient.id + ')') throw Error('Gradient points outside its diagram');
+                return gradient.id;
+            })
+            """);
+        Assert.NotEqual(gradients[0], gradients[1]);
+        await page.EvaluateAsync("history.replaceState(null, '', location.pathname)");
+        await words.PressAsync("Enter");
+        await page.WaitForURLAsync("**/inline.html#floor-plan");
+        Assert.EndsWith("#floor-plan", page.Url);
     }
 }

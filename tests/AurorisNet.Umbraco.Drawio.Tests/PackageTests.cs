@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Xml.Linq;
 using Drawio;
-using Drawio.Migrations;
 
 namespace AurorisNet.Umbraco.Drawio.Tests;
 
@@ -29,23 +28,22 @@ public sealed class PackageTests
     {
         var package = XDocument.Load(Path.Combine(Files, "package.xml"));
         var dataType = package.Descendants("DataType").Single(t => t.Attribute("EditorUiAlias")!.Value == "AurorisNet.Drawio.Editor");
-        Assert.Equal(ImportDiagramElementType.DataTypeKey, Guid.Parse(dataType.Attribute("Definition")!.Value));
+        Assert.Equal(DrawioInstallation.DataTypeKey, Guid.Parse(dataType.Attribute("Definition")!.Value));
         var editor = dataType.Attribute("EditorUiAlias")!.Value;
         using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(Files, "umbraco-package.json")));
         var extensions = manifest.RootElement.GetProperty("extensions").EnumerateArray().ToArray();
         Assert.Contains(extensions, e => e.GetProperty("type").GetString() == "propertyEditorUi" && e.GetProperty("alias").GetString() == editor);
         Assert.All(extensions.Where(e => e.GetProperty("type").GetString() == "blockEditorCustomView"),
-            e => Assert.Equal(ImportDiagramElementType.ElementTypeAlias, e.GetProperty("forContentTypeAlias").GetString()));
+            e => Assert.Equal(DrawioInstallation.ElementTypeAlias, e.GetProperty("forContentTypeAlias").GetString()));
 
         var element = package.Descendants("DocumentType").Single();
-        Assert.Equal(ImportDiagramElementType.ElementTypeAlias, element.Element("Info")!.Element("Alias")!.Value);
-        Assert.Equal(ImportDiagramElementType.ElementTypeKey, Guid.Parse(element.Element("Info")!.Element("Key")!.Value));
+        Assert.Equal(DrawioInstallation.ElementTypeAlias, element.Element("Info")!.Element("Alias")!.Value);
+        Assert.Equal(DrawioInstallation.ElementTypeKey, Guid.Parse(element.Element("Info")!.Element("Key")!.Value));
         Assert.Equal("True", element.Element("Info")!.Element("IsElement")!.Value);
         var image = element.Descendants("GenericProperty").Single(p => p.Element("Alias")!.Value == "image");
         Assert.Equal(dataType.Attribute("Definition")!.Value, image.Element("Definition")!.Value);
-        Assert.Equal(["image", "caption", "altText", "openInViewer", "link"], element.Descendants("GenericProperty").OrderBy(p => int.Parse(p.Element("SortOrder")!.Value)).Select(p => p.Element("Alias")!.Value));
-        // Umbraco finds the embedded copy by the migration step's namespace.
-        Assert.Contains($"{typeof(ImportDiagramElementType).Namespace}.package.xml", typeof(ImportDiagramElementType).Assembly.GetManifestResourceNames());
+        Assert.Equal(["image", "format", "caption", "altText", "openInViewer", "link", "cssClass"], element.Descendants("GenericProperty").OrderBy(p => int.Parse(p.Element("SortOrder")!.Value)).Select(p => p.Element("Alias")!.Value));
+        Assert.Contains($"{typeof(DrawioInstallation).Namespace}.package.xml", typeof(DrawioInstallation).Assembly.GetManifestResourceNames());
     }
 
     /// <summary>Every script the manifest names exists, under the folder the hosting code and the views address.</summary>
@@ -53,7 +51,7 @@ public sealed class PackageTests
     public void The_manifest_names_shipped_scripts()
     {
         using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(Files, "umbraco-package.json")));
-        Assert.Equal(DrawioMigrationPlan.Identifier, manifest.RootElement.GetProperty("id").GetString());
+        Assert.Equal(DrawioInstallation.Identifier, manifest.RootElement.GetProperty("id").GetString());
         foreach (var element in manifest.RootElement.GetProperty("extensions").EnumerateArray().Select(e => e.GetProperty("element").GetString()!))
         {
             Assert.StartsWith(DrawioPaths.Plugin + "/", element);
@@ -79,19 +77,19 @@ public sealed class PackageTests
     }
 
     /// <summary>
-    /// The editor names each PNG after its media key, which is the mark the cleanup looks for; a change to one side must
+    /// The editor names each drawing after its media key, which is the mark the cleanup looks for; a change to one side must
     /// change the other.
     /// </summary>
     [Fact]
     public void The_editor_names_files_as_the_cleanup_expects()
     {
-        Assert.Contains("`diagram-${id.replaceAll('-', '')}.png`", File.ReadAllText(Path.Combine(Files, "editor.js")));
+        Assert.Contains("`diagram-${id.replaceAll('-', '')}.drawio`", File.ReadAllText(Path.Combine(Files, "editor.js")));
         var key = Guid.NewGuid();
-        Assert.True(DiagramMediaRetention.IsDiagramFile($"/media/abc123/diagram-{key:N}.png", key));
-        Assert.True(DiagramMediaRetention.IsDiagramFile($"/media/abc123/DIAGRAM-{key.ToString("N").ToUpperInvariant()}.PNG", key));
-        Assert.False(DiagramMediaRetention.IsDiagramFile($"/media/abc123/diagram-{Guid.NewGuid():N}.png", key));
-        Assert.False(DiagramMediaRetention.IsDiagramFile("/media/abc123/diagram.png", key));
-        Assert.False(DiagramMediaRetention.IsDiagramFile($"/media/abc123/mydiagram-{key:N}.png", key));
+        Assert.True(DiagramMediaRetention.IsDiagramFile($"/media/abc123/diagram-{key:N}.drawio", key));
+        Assert.True(DiagramMediaRetention.IsDiagramFile($"/media/abc123/DIAGRAM-{key.ToString("N").ToUpperInvariant()}.DRAWIO", key));
+        Assert.False(DiagramMediaRetention.IsDiagramFile($"/media/abc123/diagram-{Guid.NewGuid():N}.drawio", key));
+        Assert.False(DiagramMediaRetention.IsDiagramFile("/media/abc123/diagram.drawio", key));
+        Assert.False(DiagramMediaRetention.IsDiagramFile($"/media/abc123/mydiagram-{key:N}.drawio", key));
         Assert.False(DiagramMediaRetention.IsDiagramFile(null, key));
     }
 
