@@ -65,6 +65,20 @@ public sealed class PackageTests
     }
 
     /// <summary>
+    /// A previewer for every element type, such as BlockPreview, registers its view without a weight, and the backoffice
+    /// shows one view for a block: the heaviest. The weight keeps the Diagram block's own preview ahead of those.
+    /// </summary>
+    [Fact]
+    public void The_block_preview_outranks_previews_for_every_element_type()
+    {
+        using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(Files, "umbraco-package.json")));
+        var previews = manifest.RootElement.GetProperty("extensions").EnumerateArray()
+            .Where(e => e.GetProperty("type").GetString() == "blockEditorCustomView").ToArray();
+        Assert.Equal(["block-grid", "block-list"], previews.Select(e => e.GetProperty("forBlockEditor").GetString()).Order());
+        Assert.All(previews, e => Assert.True(e.GetProperty("weight").GetInt32() > 0));
+    }
+
+    /// <summary>
     /// The editor names each PNG after its media key, which is the mark the cleanup looks for; a change to one side must
     /// change the other.
     /// </summary>

@@ -25,6 +25,7 @@
       "type": "blockEditorCustomView",
       "alias": "AurorisNet.Drawio.Preview.Grid",
       "name": "Diagram preview in a Block Grid",
+      "weight": 1000,
       "element": "/App_Plugins/AurorisNet.Drawio/block-preview.js",
       "forContentTypeAlias": "drawioDiagram",
       "forBlockEditor": "block-grid"
@@ -33,6 +34,7 @@
       "type": "blockEditorCustomView",
       "alias": "AurorisNet.Drawio.Preview.List",
       "name": "Diagram preview in a Block List",
+      "weight": 1000,
       "element": "/App_Plugins/AurorisNet.Drawio/block-preview.js",
       "forContentTypeAlias": "drawioDiagram",
       "forBlockEditor": "block-list"

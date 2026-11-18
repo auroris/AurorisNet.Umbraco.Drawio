@@ -206,7 +206,8 @@ public sealed partial class SiteTests
         var type = new ContentType(strings, Constants.System.Root) { Alias = alias, Name = alias, AllowedAsRoot = true };
         type.AddPropertyType(new PropertyType(strings, dataType, "diagrams") { Name = "Diagrams" });
         Assert.True((await services.GetRequiredService<IContentTypeService>().CreateAsync(type, Constants.Security.SuperUserKey)).Success);
-        return services.GetRequiredService<IContentService>().Create(alias, Constants.System.Root, alias);
+        // Build the page from the type itself. Umbraco 18.0.0 sometimes fails to find a new type by its alias this soon.
+        return new Content(alias, Constants.System.Root, type);
     }
 
     private IMedia DiagramImage(bool owned = true)
