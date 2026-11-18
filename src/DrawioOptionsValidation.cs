@@ -14,7 +14,8 @@ internal sealed partial class DrawioOptionsValidation : IValidateOptions<DrawioO
         var errors = new List<string>();
         if (options.WebRoot?.Any(char.IsControl) == true)
             errors.Add("Drawio:WebRoot must be a folder path.");
-        if (options.DefaultLibraries is { } defaults && !LibraryList().IsMatch(defaults.Trim()))
+        // An empty value keeps draw.io's own set, as a missing one does.
+        if (!string.IsNullOrWhiteSpace(options.DefaultLibraries) && !LibraryList().IsMatch(options.DefaultLibraries.Trim()))
             errors.Add("Drawio:DefaultLibraries must be library names separated by semicolons, such as general;uml;flowchart.");
         if (string.IsNullOrWhiteSpace(options.LibraryGroup))
             errors.Add("Drawio:LibraryGroup must not be empty.");

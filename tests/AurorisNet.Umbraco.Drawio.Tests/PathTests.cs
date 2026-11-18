@@ -25,6 +25,12 @@ public sealed class PathTests
     [InlineData("/..")]
     [InlineData("/js\\..\\web.config")]
     [InlineData("/js/a\u0000.js")]
+    // Windows opens WEB-INF for "WEB-INF." and for "WEB-INF ".
+    [InlineData("/WEB-INF./web.xml")]
+    [InlineData("/web-inf /web.xml")]
+    [InlineData("/META-INF./MANIFEST.MF")]
+    [InlineData("/js/app.min.js.map.")]
+    [InlineData("/js/app.min.js.map ")]
     public void Servlet_folders_dotfiles_source_maps_and_backslashes_are_refused(string path) => Assert.True(DrawioPaths.IsBlocked(path));
 
     [Theory]

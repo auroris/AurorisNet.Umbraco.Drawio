@@ -1,6 +1,5 @@
 import { UmbLitElement } from '@umbraco-cms/backoffice/lit-element';
 import { html, css, nothing } from '@umbraco-cms/backoffice/external/lit';
-import { fromEvent } from '@umbraco-cms/backoffice/external/rxjs';
 import { UMB_ACTION_EVENT_CONTEXT } from '@umbraco-cms/backoffice/action';
 import { UmbEntityUpdatedEvent } from '@umbraco-cms/backoffice/entity-action';
 import { mediaApi } from './compatibility/media-api.js';
@@ -13,17 +12,25 @@ export default class DiagramPreview extends UmbLitElement {
     static properties = Object.fromEntries(['content', 'config', 'label', 'icon', 'unpublished'].map(name => [name, { attribute: false }]));
     #api;
     #apiError = false;
+    #events;
+    // Editing a diagram replaces the file of the same media item, so the picture is read again when that item changes.
+    #onUpdated = event => { if (this.#key && event.getUnique() === this.#key) this.#load(this.#key); };
     constructor() {
         super();
         this.consumeContext(UMB_ACTION_EVENT_CONTEXT, events => {
-            this.observe(events && fromEvent(events, UmbEntityUpdatedEvent.TYPE), event => {
-                if (this.#key && event.getUnique() === this.#key) this.#load(this.#key);
-            }, 'diagramMediaUpdates');
+            this.#events?.removeEventListener(UmbEntityUpdatedEvent.TYPE, this.#onUpdated);
+            this.#events = events;
+            if (this.isConnected) events?.addEventListener(UmbEntityUpdatedEvent.TYPE, this.#onUpdated);
         });
     }
     connectedCallback() {
         super.connectedCallback();
+        this.#events?.addEventListener(UmbEntityUpdatedEvent.TYPE, this.#onUpdated);
         mediaApi(this).then(api => { this.#api = api; this.requestUpdate(); }).catch(() => { this.#apiError = true; this.requestUpdate(); });
+    }
+    disconnectedCallback() {
+        this.#events?.removeEventListener(UmbEntityUpdatedEvent.TYPE, this.#onUpdated);
+        super.disconnectedCallback();
     }
     #key;
     #url;

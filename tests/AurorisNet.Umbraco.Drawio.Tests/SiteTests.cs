@@ -135,7 +135,7 @@ public sealed partial class SiteTests(SiteFixture fixture) : IClassFixture<SiteF
         using (var app = await Http.GetAsync("/draw/js/app.min.js", Cancel))
             Assert.Equal("var App={};", await app.Content.ReadAsStringAsync(Cancel));
 
-        foreach (var blocked in new[] { "/draw/js/app.min.js.map", "/draw/WEB-INF/web.xml", "/draw/web-inf/web.xml", "/draw/.gitignore", "/draw/missing.js" })
+        foreach (var blocked in new[] { "/draw/js/app.min.js.map", "/draw/WEB-INF/web.xml", "/draw/web-inf/web.xml", "/draw/WEB-INF./web.xml", "/draw/.gitignore", "/draw/missing.js" })
         {
             using var response = await Http.GetAsync(blocked, Cancel);
             Assert.True(response.StatusCode == HttpStatusCode.NotFound, blocked);

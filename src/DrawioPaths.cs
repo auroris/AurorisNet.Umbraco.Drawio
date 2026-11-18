@@ -26,6 +26,7 @@ public static class DrawioPaths
     /// <summary>
     /// Whether a path under <see cref="Editor"/> must not be served. The draw.io source tree has Java servlet folders,
     /// dotfiles and source maps that are no part of the web app, and a backslash can address a parent folder on Windows.
+    /// Windows also drops a dot or space from the end of a name, so <c>WEB-INF.</c> would open <c>WEB-INF</c>.
     /// </summary>
     public static bool IsBlocked(string? path)
     {
@@ -33,7 +34,8 @@ public static class DrawioPaths
         if (path.Contains('\\') || path.Any(char.IsControl) || path.EndsWith(".map", StringComparison.OrdinalIgnoreCase)) return true;
         foreach (var segment in path.Split('/'))
         {
-            if (segment.StartsWith('.') || segment.Equals("WEB-INF", StringComparison.OrdinalIgnoreCase)
+            if (segment.StartsWith('.') || segment.EndsWith('.') || segment.EndsWith(' ')
+                || segment.Equals("WEB-INF", StringComparison.OrdinalIgnoreCase)
                 || segment.Equals("META-INF", StringComparison.OrdinalIgnoreCase))
                 return true;
         }

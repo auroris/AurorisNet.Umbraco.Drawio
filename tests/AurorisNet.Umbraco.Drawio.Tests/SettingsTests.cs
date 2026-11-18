@@ -81,6 +81,16 @@ public sealed class SettingsTests
         Assert.Contains(error.Failures, failure => failure.StartsWith(message, StringComparison.Ordinal));
     }
 
+    /// <summary>A settings file that spells out the empty default must not stop the site.</summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void An_empty_default_library_list_keeps_draw_io_own_set(string value)
+    {
+        var options = Bind(new() { ["Drawio:DefaultLibraries"] = value });
+        Assert.Equal("null", DrawioScripts.Configuration(new DrawioScriptContext("", options)));
+    }
+
     [Fact]
     public void Duplicate_names_are_refused()
     {

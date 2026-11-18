@@ -30,6 +30,7 @@ export default class DiagramEditor extends UmbLitElement {
         dialog[open] { display: flex; flex-direction: column; }
         iframe { flex: 1; min-height: 0; width: 100%; border: 0; }
         [role=alert] { color: #9d1721; }
+        dialog header { display: flex; align-items: center; gap: .8rem; }
         dialog [role=alert]:not(:empty) { padding: .4rem .8rem; }
     `;
     constructor() {
@@ -124,7 +125,9 @@ export default class DiagramEditor extends UmbLitElement {
             if (session !== this.session) return;
             session.uploading = session.saving = false;
             this.error = err?.message || err?.detail || err?.title || 'The diagram editor could not complete the request.';
-            this.post(frame, {action:'spinner',show:false}); this.post(frame, {action:'status',modified:true});
+            this.post(frame, {action:'spinner',show:false});
+            // A failed save leaves unsaved work in draw.io. A diagram that never opened has none to warn about.
+            if (session.loaded) this.post(frame, {action:'status',modified:true});
         }
     };
     render() {
@@ -133,7 +136,8 @@ export default class DiagramEditor extends UmbLitElement {
             <button type="button" ?disabled=${this.readonly || !this.api} @click=${this.launch}>${this.value?.length ? "Edit diagram" : "Create diagram"}</button>
             <span role="alert">${this.open ? '' : this.error}</span>
             ${this.open ? html`<dialog aria-label="Diagram editor" @cancel=${this.onCancel}>
-                <span role="alert">${this.error}</span>
+                <header><span role="alert">${this.error}</span>
+                    ${this.error && !this.session?.loaded ? html`<button type="button" @click=${this.close}>Close</button>` : ""}</header>
                 <iframe title="Diagram editor" referrerpolicy="no-referrer" src=${this.settings.url.href}></iframe>
             </dialog>` : ""}`;
     }

@@ -14,17 +14,25 @@ internal sealed class DiagramMediaRetention(IUmbracoApi cms, IOptionsMonitor<Dra
     {
         foreach (var page in pages)
         {
-            var candidates = cms.ResolveMedia(cms.GetMediaKeys(page)).Where(IsDiagramImage).Select(image => image.Id).ToArray();
-            if (candidates.Length == 0 || !cms.RetentionRelationTypeExists) continue;
-            cms.WithTreeWriteScope(() =>
+            try
             {
-                // The notification can arrive after a concurrent deletion or version prune.
-                if (!cms.ContentVersionExists(page.VersionId)) return false;
-                var existing = cms.GetRetentionRelations(page.Id).Select(relation => relation.MediaId);
-                foreach (var id in candidates.Except(existing))
-                    if (cms.GetMedia(id) is { } image && IsDiagramImage(image)) cms.AddRetentionRelation(page.Id, id);
-                return true;
-            });
+                var candidates = cms.ResolveMedia(cms.GetMediaKeys(page)).Where(IsDiagramImage).Select(image => image.Id).ToArray();
+                if (candidates.Length == 0 || !cms.RetentionRelationTypeExists) continue;
+                cms.WithTreeWriteScope(() =>
+                {
+                    // The notification can arrive after a concurrent deletion or version prune.
+                    if (!cms.ContentVersionExists(page.VersionId)) return false;
+                    var existing = cms.GetRetentionRelations(page.Id).Select(relation => relation.MediaId);
+                    foreach (var id in candidates.Except(existing))
+                        if (cms.GetMedia(id) is { } image && IsDiagramImage(image)) cms.AddRetentionRelation(page.Id, id);
+                    return true;
+                });
+            }
+            catch (Exception exception)
+            {
+                // The save has already committed, so it stands. The page's next save records its diagrams again.
+                logger.LogWarning(exception, "Could not record the diagrams used by content {ContentKey}", page.Key);
+            }
         }
     }
 
