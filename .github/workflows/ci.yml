@@ -49,7 +49,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Test backoffice adapters
-        run: node --test tests/backoffice/media-api.test.mjs
+        run: node --test "tests/backoffice/*.test.mjs"
 
       - name: Test
         run: dotnet test --project tests/AurorisNet.Umbraco.Drawio.Tests -c Release

@@ -1,9 +1,7 @@
-using System.Security.Cryptography;
 using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
@@ -35,26 +33,29 @@ internal static class DrawioHosting
             services.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(DrawioHosting).FullName!)
                 .LogWarning("The draw.io folder {Folder} named by Drawio:WebRoot does not exist. /draw/ answers 503 until it does.", root);
 
-        if (options.RedirectMediaFiles)
+        app.Use(async (context, next) =>
         {
-            app.Use(async (context, next) =>
+            if (IsRead(context) && context.Request.Path.StartsWithSegments("/media", StringComparison.OrdinalIgnoreCase))
             {
-                if (IsRead(context) && DrawioPaths.MediaRedirect(context.Request.PathBase, context.Request.Path.Value) is { } target)
+                var format = context.Request.Query["drawio"].ToString();
+                if (format is "raw" or "base64" && DrawioPaths.IsDiagramExtension(context.Request.Path.Value))
                 {
-                    context.Response.Redirect(target);
+                    await DrawioMediaResponse.Serve(context, next, format == "base64");
                     return;
                 }
-                await next(context);
-            });
-        }
-
-        // ASP.NET Core's default static-file types omit .drawio. Make website files available to the standalone reader.
-        app.UseStaticFiles(new StaticFileOptions
-        {
-            ContentTypeProvider = new FileExtensionContentTypeProvider(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                [".drawio"] = "application/xml"
-            })
+                if (options.RedirectMediaFiles && DrawioPaths.MediaRedirect(context.Request.PathBase.Value,
+                    context.Request.Path.Value, context.Request.QueryString) is { } target)
+                {
+                    context.Response.Headers.AppendCommaSeparatedValues("Vary", "Accept");
+                    // The editor requests XML explicitly. Navigating to the same URL still opens the editor page.
+                    if (!string.Equals(context.Request.Headers.Accept, "application/xml", StringComparison.OrdinalIgnoreCase))
+                    {
+                        context.Response.Redirect(target);
+                        return;
+                    }
+                }
+            }
+            await next(context);
         });
 
         app.Map(DrawioPaths.Editor, draw =>
@@ -87,7 +88,7 @@ internal static class DrawioHosting
                 }
                 if (path.Equals("/proxy", StringComparison.OrdinalIgnoreCase))
                 {
-                    await Proxy(context);
+                    RedirectToMedia(context);
                     return;
                 }
                 if (path.Equals("/settings", StringComparison.OrdinalIgnoreCase))
@@ -165,42 +166,17 @@ internal static class DrawioHosting
     }
 
     /// <summary>
-    /// Returns a media file to draw.io, which opens <c>#U</c> links through this proxy. <c>base64=1</c> asks for the bytes as
-    /// Base64 text, which draw.io uses for PNGs that carry a diagram.
+    /// Directs draw.io's legacy proxy requests to the canonical media URL for authorization and delivery.
     /// </summary>
-    private static async Task Proxy(HttpContext context)
+    private static void RedirectToMedia(HttpContext context)
     {
         if (!DrawioPaths.TryGetMediaPath(context.Request.Query["url"].ToString(), out var relative))
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             return;
         }
-        var media = context.RequestServices.GetRequiredService<IUmbracoApi>();
-        if (media.GetMediaFileSize(relative) is not { } size)
-        {
-            context.Response.StatusCode = StatusCodes.Status404NotFound;
-            return;
-        }
-        var encoded = context.Request.Query["base64"] == "1";
-        if (encoded && size > DrawioPaths.MaxBase64Bytes)
-        {
-            context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
-            return;
-        }
-        context.Response.ContentType = encoded ? "text/plain" : "application/octet-stream";
-        context.Response.Headers.XContentTypeOptions = "nosniff";
-        context.Response.Headers.CacheControl = "no-cache";
-        context.Response.ContentLength = encoded ? 4 * ((size + 2L) / 3L) : size;
-        if (HttpMethods.IsHead(context.Request.Method)) return;
-        await using var input = media.OpenMediaFile(relative);
-        if (!encoded)
-        {
-            await input.CopyToAsync(context.Response.Body, context.RequestAborted);
-            return;
-        }
-        using var transform = new ToBase64Transform();
-        await using var output = new CryptoStream(context.Response.Body, transform, CryptoStreamMode.Write, leaveOpen: true);
-        await input.CopyToAsync(output, context.RequestAborted);
-        await output.FlushFinalBlockAsync(context.RequestAborted);
+        var mediaPath = new PathString("/media/" + relative).ToUriComponent();
+        var format = context.Request.Query["base64"] == "1" ? "base64" : "raw";
+        context.Response.Redirect(SitePath(context) + mediaPath + QueryString.Create("drawio", format), false, true);
     }
 }

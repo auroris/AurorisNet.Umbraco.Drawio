@@ -20,21 +20,35 @@ export async function editorSettings(viewer = false) {
         for (const library of entry.libs || []) library.url = new URL(library.url, location.origin).href;
     return { url, configuration };
 }
+// Limit decoded bytes too, since Content-Length can be absent or describe a compressed response.
+export async function diagramBlob(response) {
+    const reader = response.body?.getReader();
+    const chunks = [];
+    let size = 0;
+    try {
+        if (Number(response.headers.get('Content-Length')) > maxBytes) throw Error('The diagram exceeds 40 MiB.');
+        if (!reader) throw Error('The diagram response has no body.');
+        while (true) {
+            const {done, value} = await reader.read();
+            if (done) return new Blob(chunks);
+            size += value.byteLength;
+            if (size > maxBytes) throw Error('The diagram exceeds 40 MiB.');
+            chunks.push(value);
+        }
+    } catch (error) {
+        await reader?.cancel();
+        throw error;
+    } finally { reader?.releaseLock(); }
+}
 export async function websiteDiagram(source) {
     const url = new URL(source, location.href);
     if (url.origin !== location.origin || !/\.(png|svg|drawio|xml|jpe?g|gif|webp)$/i.test(url.pathname))
         throw Error('Choose an image or .drawio file on this website.');
-    // Read .drawio media through the media store to avoid its editor redirect, also with remote media storage.
-    const site = new URL('../../', import.meta.url).pathname;
-    let request = url;
-    if (url.pathname.startsWith(site + 'media/') && /\.(drawio|xml|svg|png)$/i.test(url.pathname)) {
-        request = new URL('../../draw/proxy', import.meta.url);
-        request.searchParams.set('url', url.pathname.slice(site.length));
-    }
-    const response = await fetch(request, {redirect:'error'});
+    // Ask for the original file at its normal URL, preserving the host's access checks and query parameters.
+    const headers = /\.drawio$/i.test(url.pathname) ? {Accept:'application/xml'} : {};
+    const response = await fetch(url, {headers, cache:'reload', redirect:'error'});
     if (!response.ok) throw Error(`Cannot load the diagram (${response.status}).`);
-    const blob = await response.blob();
-    if (blob.size > maxBytes) throw Error('The diagram exceeds 40 MiB.');
+    const blob = await diagramBlob(response);
     const extension = url.pathname.split('.').pop().toLowerCase();
     if (extension === 'drawio' || extension === 'xml') {
         const xml = await blob.text();
@@ -67,8 +81,7 @@ export async function websiteDiagram(source) {
 export async function originalPng(url) {
     const response = await fetch(url, {cache:'reload'});
     if (!response.ok) throw Error('The original diagram could not be loaded.');
-    const blob = await response.blob();
-    if (blob.size > maxBytes) throw Error('The diagram exceeds 40 MiB.');
+    const blob = await diagramBlob(response);
     const data = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);

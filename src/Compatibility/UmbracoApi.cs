@@ -3,6 +3,7 @@ using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.IO;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Cms.Core.Models.PublishedContent;
+using Umbraco.Cms.Core.Persistence.Repositories;
 using Umbraco.Cms.Core.PropertyEditors;
 using Umbraco.Cms.Core.Scoping;
 using Umbraco.Cms.Core.Services;
@@ -19,13 +20,14 @@ internal abstract class UmbracoApi(IServiceProvider services) : IUmbracoApi
     private readonly ICoreScopeProvider scopes = services.GetRequiredService<ICoreScopeProvider>();
     private readonly IMediaService media = services.GetRequiredService<IMediaService>();
     private readonly IRelationService relations = services.GetRequiredService<IRelationService>();
-    private readonly MediaFileManager files = services.GetRequiredService<MediaFileManager>();
     private readonly MediaUrlGeneratorCollection urls = services.GetRequiredService<MediaUrlGeneratorCollection>();
     private readonly DataValueReferenceFactoryCollection references = services.GetRequiredService<DataValueReferenceFactoryCollection>();
     private readonly PropertyEditorCollection editors = services.GetRequiredService<PropertyEditorCollection>();
 
     public abstract int MajorVersion { get; }
     protected abstract IEnumerable<IContent> GetVersions(int contentId);
+
+    public bool ContentVersionExists(int versionId) => services.GetRequiredService<IDocumentRepository>().GetVersion(versionId) is not null;
 
     public virtual T WithTreeWriteScope<T>(Func<T> work)
     {
@@ -57,15 +59,18 @@ internal abstract class UmbracoApi(IServiceProvider services) : IUmbracoApi
         }
     }
 
-    public virtual IEnumerable<DiagramMedia> GetReferencedMedia(int contentId)
+    public IEnumerable<Guid> GetMediaKeys(IContent content) =>
+        references.GetAllReferences(content.Properties, editors).Select(reference => reference.Udi)
+            .OfType<GuidUdi>().Where(udi => udi.EntityType == Constants.UdiEntityType.Media).Select(udi => udi.Guid);
+
+    public IEnumerable<DiagramMedia> ResolveMedia(IEnumerable<Guid> keys)
     {
-        var keys = new HashSet<Guid>();
-        if (Content.GetById(contentId) is { } current)
-            foreach (var item in GetVersions(contentId).Append(current))
-                foreach (var reference in references.GetAllReferences(item.Properties, editors))
-                    if (reference.Udi is GuidUdi udi && udi.EntityType == Constants.UdiEntityType.Media) keys.Add(udi.Guid);
-        return media.GetByIds(keys).Select(ToMedia).ToArray();
+        var distinct = keys.Distinct().ToArray();
+        return distinct.Length == 0 ? [] : media.GetByIds(distinct).Select(ToMedia).ToArray();
     }
+
+    public IEnumerable<DiagramMedia> GetRetainedMedia(int contentId) => Content.GetById(contentId) is { } current
+        ? ResolveMedia(GetVersions(contentId).Append(current).SelectMany(GetMediaKeys)) : [];
 
     public virtual bool RetentionRelationTypeExists => relations.GetRelationTypeByAlias(DiagramMediaRetention.RelationAlias) is not null;
 
@@ -94,20 +99,16 @@ internal abstract class UmbracoApi(IServiceProvider services) : IUmbracoApi
     public virtual bool RecycleMedia(int mediaId)
         => media.GetById(mediaId) is { } item && (item.Trashed || media.MoveToRecycleBin(item).Success);
 
-    public virtual long? GetMediaFileSize(string path) => files.FileSystem.FileExists(path) ? files.FileSystem.GetSize(path) : null;
-    public virtual Stream OpenMediaFile(string path) => files.FileSystem.OpenFile(path);
-
     public virtual DiagramPresentation ReadDiagram(IPublishedElement element)
     {
         var image = element.Value<MediaWithCrops>("image");
         var link = element.Value<Link>("link");
-        var openInViewer = element.HasProperty("openInViewer")
-            ? element.Value<bool>("openInViewer")
-            : element.HasValue("clickAction") && element.Value<int>("clickAction") == (int)DiagramClickAction.Viewer;
-        var action = openInViewer
-            ? DiagramClickAction.Viewer
-            : link?.Url is null ? DiagramClickAction.None : DiagramClickAction.Link;
-        return new(image?.MediaUrl(), element.Value<string>("caption"), element.Value<string>("altText"), action,
+        var legacy = !element.HasProperty("openInViewer") && element.HasProperty("clickAction");
+        var action = legacy
+            ? (element.HasValue("clickAction") ? (DiagramClickAction)element.Value<int>("clickAction") : DiagramClickAction.None)
+            : element.Value<bool>("openInViewer") ? DiagramClickAction.Viewer : DiagramClickAction.Link;
+        return new(image?.Content.GetCropUrl(cacheBuster: true), image?.MediaUrl(),
+            element.Value<string>("caption"), element.Value<string>("altText"), action,
             link?.Url, link?.Target, link?.Name,
             services.GetRequiredService<UmbracoHelper>().GetDictionaryValueOrDefault("Drawio.OpenDiagram", "Open diagram"));
     }

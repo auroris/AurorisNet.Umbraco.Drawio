@@ -118,10 +118,11 @@ application.
 | A PNG or SVG that carries a diagram | The diagram |
 | Any other PNG, SVG, JPEG, GIF or WebP | One picture on an empty page |
 
-The file must be on the same website and at most 40 MiB. The editor reads `.drawio`,
-`.xml`, `.svg` and `.png` files under `/media/` through `/draw/proxy`, which returns them
-from Umbraco's media file system, so media in remote storage opens too. The proxy accepts
-paths inside the media store only.
+The file must be on the same website and at most 40 MiB. The editor reads the original
+media URL through the website's usual media handler, including from remote storage exposed
+through that handler. For a `.drawio` file it sends `Accept: application/xml`. Opening
+that file's link in a browser launches the editor. The legacy `/draw/proxy` endpoint redirects clients to the
+media URL for a bounded download. Its `base64=1` option selects a Base64 response.
 
 The examples use Umbraco's default installation at the site's URL root.
 
@@ -172,6 +173,9 @@ control what happens when someone selects the image.
 
 The block renders a link only to a path on the website, an anchor, or an `http`, `https`,
 `mailto` or `tel` address.
+
+Sites upgraded from the original integer **Click action** property retain their viewer,
+link and no-link choices, including **No link** when the picker still holds a destination.
 
 The package compiles three views: `Views/Partials/Drawio/Diagram.cshtml`, and
 `drawioDiagram.cshtml` under `Views/Partials/blocklist/Components` and
@@ -236,7 +240,7 @@ use its built-in test runner and no npm packages.
 git submodule update --init --depth 1
 dotnet build -c Release
 # The backoffice media adapters
-node --test tests/backoffice/media-api.test.mjs
+node --test "tests/backoffice/*.test.mjs"
 # The tests on the newest supported Umbraco release
 dotnet test --project tests/AurorisNet.Umbraco.Drawio.Tests -c Release
 # The tests on another release

@@ -32,8 +32,8 @@ internal sealed class UmbracoNotifications(DiagramMediaRetention retention) :
     INotificationHandler<ContentSavedNotification>, INotificationHandler<ContentPublishedNotification>,
     INotificationHandler<ContentDeletedVersionsNotification>, INotificationHandler<ContentDeletingNotification>
 {
-    public void Handle(ContentSavedNotification notification) => retention.Track(notification.SavedEntities.Select(item => item.Id));
-    public void Handle(ContentPublishedNotification notification) => retention.Track(notification.PublishedEntities.Select(item => item.Id));
+    public void Handle(ContentSavedNotification notification) => retention.Track(notification.SavedEntities);
+    public void Handle(ContentPublishedNotification notification) => retention.Track(notification.PublishedEntities);
     // These notifications run after the original scope has committed and released its context.
     public void Handle(ContentDeletedVersionsNotification notification) => retention.Clean([notification.Id], []);
     public void Handle(IEnumerable<ContentDeletedVersionsNotification> notifications)

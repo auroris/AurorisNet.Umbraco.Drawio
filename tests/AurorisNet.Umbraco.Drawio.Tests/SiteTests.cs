@@ -34,7 +34,12 @@ public sealed class SiteFixture : IAsyncLifetime
             ["Drawio:Libraries:0:Url"] = "/App_Plugins/Site/shapes.xml",
             ["Drawio:Plugins:0:Name"] = "siteplugin",
             ["Drawio:Plugins:0:Url"] = "/App_Plugins/Site/plugin.js",
-        }, TestContext.Current.CancellationToken);
+        }, TestContext.Current.CancellationToken, configurePipeline: app => app.Use(async (context, next) =>
+        {
+            if (context.Request.Path.StartsWithSegments("/media/private"))
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            else await next(context);
+        }));
         Http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { BaseAddress = Site.Address };
     }
 
@@ -171,13 +176,14 @@ public sealed partial class SiteTests(SiteFixture fixture) : IClassFixture<SiteF
         var bytes = Encoding.UTF8.GetBytes("<mxfile><diagram>proxy</diagram></mxfile>");
         media.AddFile("proxytest/plan.drawio", new MemoryStream(bytes), overrideIfExists: true);
 
-        using (var raw = await Http.GetAsync("/draw/proxy?url=media/proxytest/plan.drawio", Cancel))
+        using var client = new HttpClient { BaseAddress = Site.Address };
+        using (var raw = await client.GetAsync("/draw/proxy?url=media/proxytest/plan.drawio", Cancel))
         {
             Assert.Equal(HttpStatusCode.OK, raw.StatusCode);
             Assert.Equal(bytes, await raw.Content.ReadAsByteArrayAsync(Cancel));
             Assert.Equal("nosniff", Assert.Single(raw.Headers.GetValues("X-Content-Type-Options")));
         }
-        using (var encoded = await Http.GetAsync("/draw/proxy?url=media/proxytest/plan.drawio&base64=1", Cancel))
+        using (var encoded = await client.GetAsync("/draw/proxy?url=media/proxytest/plan.drawio&base64=1", Cancel))
         {
             var text = await encoded.Content.ReadAsStringAsync(Cancel);
             Assert.Equal(Convert.ToBase64String(bytes), text);
@@ -192,9 +198,45 @@ public sealed partial class SiteTests(SiteFixture fixture) : IClassFixture<SiteF
             ("media/proxytest/plan.txt", HttpStatusCode.BadRequest),
         })
         {
-            using var response = await Http.GetAsync("/draw/proxy?url=" + Uri.EscapeDataString(url), Cancel);
+            using var response = await client.GetAsync("/draw/proxy?url=" + Uri.EscapeDataString(url), Cancel);
             Assert.True(response.StatusCode == status, $"{url}: {response.StatusCode}");
         }
+        media.AddFile("proxytest/étage A+B.drawio", new MemoryStream(bytes), overrideIfExists: true);
+        var named = Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString("/draw/proxy", "url", "media/proxytest/étage A+B.drawio");
+        Assert.Equal(bytes, await client.GetByteArrayAsync(named, Cancel));
+        using var original = new HttpRequestMessage(HttpMethod.Get, "/media/proxytest/plan.drawio");
+        original.Headers.Accept.ParseAdd("application/xml");
+        using var native = await Http.SendAsync(original, Cancel);
+        Assert.Equal(HttpStatusCode.OK, native.StatusCode);
+        Assert.Equal("application/xml", native.Content.Headers.ContentType!.MediaType);
+        Assert.Equal(bytes, await native.Content.ReadAsByteArrayAsync(Cancel));
+    }
+
+    [Theory]
+    [InlineData("GET", "0")]
+    [InlineData("HEAD", "1")]
+    public async Task Diagram_reads_honor_the_canonical_media_policy(string method, string base64)
+    {
+        using var client = new HttpClient { BaseAddress = Site.Address };
+        using var request = new HttpRequestMessage(new HttpMethod(method), $"/draw/proxy?url=media/private/plan.png&base64={base64}");
+        using var response = await client.SendAsync(request, Cancel);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("/media/private/plan.png", response.RequestMessage!.RequestUri!.AbsolutePath);
+    }
+
+    [Theory]
+    [InlineData("GET", "raw")]
+    [InlineData("HEAD", "base64")]
+    public async Task Oversized_media_is_rejected_before_the_body_is_sent(string method, string format)
+    {
+        var root = Site.Services.GetRequiredService<IWebHostEnvironment>().WebRootPath;
+        var folder = Directory.CreateDirectory(Path.Combine(root, "media", "limits"));
+        using (var file = System.IO.File.Create(Path.Combine(folder.FullName, "large.drawio")))
+            file.SetLength(DrawioPaths.MaxBase64Bytes + 1);
+        using var request = new HttpRequestMessage(new HttpMethod(method), "/media/limits/large.drawio?drawio=" + format);
+        using var response = await Http.SendAsync(request, Cancel);
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsByteArrayAsync(Cancel));
     }
 
     /// <summary>A link to a .drawio media file opens it in the editor.</summary>
@@ -204,6 +246,9 @@ public sealed partial class SiteTests(SiteFixture fixture) : IClassFixture<SiteF
         using var response = await Http.GetAsync("/media/proxytest/plan.drawio", Cancel);
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Equal("/draw/editor?url=%2Fmedia%2Fproxytest%2Fplan.drawio", response.Headers.Location!.OriginalString);
+        using var withQuery = await Http.GetAsync("/media/proxytest/plan.drawio?version=A%2BB", Cancel);
+        var editor = new Uri(Site.Address, withQuery.Headers.Location!);
+        Assert.Equal("/media/proxytest/plan.drawio?version=A%2BB", Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(editor.Query)["url"]);
     }
 
     // A 1×1 PNG, so the image cropper's size detection has a real file to read.

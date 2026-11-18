@@ -14,7 +14,7 @@
     var language = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
     var label = diagram.Label;
     var action = diagram.Action;
-    var viewer = Url.Content("~/draw/viewer?url=") + Uri.EscapeDataString(diagram.ImageUrl ?? "") + "&lang=" + Uri.EscapeDataString(language);
+    var viewer = DrawioPaths.ViewerUrl(Context.Request.PathBase, diagram.OriginalUrl ?? "", language);
     var href = action == DiagramClickAction.Viewer ? viewer : action == DiagramClickAction.Link ? diagram.LinkUrl : null;
     // Link picker values are editor input. Never render executable or protocol-relative URLs.
     if (href is not null && !(href.StartsWith('/') && !href.StartsWith("//") && !href.Contains('\\'))

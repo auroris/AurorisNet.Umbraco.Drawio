@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.WebUtilities;
+
 namespace Drawio;
 
 /// <summary>The request paths the package serves, and the checks that keep them inside the draw.io app and the media store.</summary>
@@ -12,10 +15,13 @@ public static class DrawioPaths
     /// <summary>The value of the <c>X-Drawio-Host</c> header on every response the application gives under <see cref="Editor"/>.</summary>
     public const string HostHeader = "AurorisNet.Umbraco.Drawio";
 
-    /// <summary>The largest media file the proxy returns as Base64, which draw.io holds in memory as a string.</summary>
+    /// <summary>The largest diagram the editor reads, in bytes before any Base64 encoding.</summary>
     public const long MaxBase64Bytes = 40 * 1024 * 1024;
 
     private static readonly string[] ProxyExtensions = [".png", ".drawio", ".xml", ".svg"];
+
+    internal static bool IsDiagramExtension(string? path) =>
+        ProxyExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Whether a path under <see cref="Editor"/> must not be served. The draw.io source tree has Java servlet folders,
@@ -36,23 +42,25 @@ public static class DrawioPaths
 
     /// <summary>
     /// Reads the proxy's <c>url</c> parameter as a path inside the media store. draw.io's <c>#U</c> links name a site file
-    /// such as <c>media/abc/diagram.drawio</c>; anything else, including a remote URL, an encoded character or a step out of
-    /// the media folder, is refused, so the proxy can never fetch from elsewhere.
+    /// such as <c>media/abc/diagram.drawio</c>. Decode each filename segment independently before checking it.
     /// </summary>
     /// <param name="url">The parameter, as draw.io sends it.</param>
     /// <param name="relative">The path inside the media file system, without the <c>media/</c> prefix.</param>
     public static bool TryGetMediaPath(string? url, out string relative)
     {
         relative = "";
-        if (url is null || !url.StartsWith("media/", StringComparison.Ordinal) || url.Length > 1024
-            || url.IndexOfAny(['\\', ':', '%', '?', '#']) >= 0 || url.Any(char.IsControl))
+        if (url is null || !url.StartsWith("media/", StringComparison.OrdinalIgnoreCase) || url.Length > 1024)
             return false;
-        foreach (var segment in url.Split('/'))
+        var segments = url["media/".Length..].Split('/');
+        for (var i = 0; i < segments.Length; i++)
         {
-            if (segment.Length == 0 || segment.StartsWith('.') || segment.EndsWith('.') || segment.EndsWith(' ')) return false;
+            var segment = Uri.UnescapeDataString(segments[i]);
+            if (segment.Length == 0 || segment.StartsWith('.') || segment.EndsWith('.') || segment.EndsWith(' ')
+                || segment.IndexOfAny(['/', '\\', ':', '%', '?', '#']) >= 0 || segment.Any(char.IsControl)) return false;
+            segments[i] = segment;
         }
-        if (!ProxyExtensions.Contains(Path.GetExtension(url), StringComparer.OrdinalIgnoreCase)) return false;
-        relative = url["media/".Length..];
+        if (!IsDiagramExtension(segments[^1])) return false;
+        relative = string.Join('/', segments);
         return true;
     }
 
@@ -62,13 +70,21 @@ public static class DrawioPaths
     /// </summary>
     /// <param name="pathBase">The site's path base, such as an IIS application's virtual path.</param>
     /// <param name="path">The request path below the path base.</param>
-    public static string? MediaRedirect(string? pathBase, string? path)
+    public static string? MediaRedirect(string? pathBase, string? path) => MediaRedirect(pathBase, path, QueryString.Empty);
+
+    internal static string? MediaRedirect(string? pathBase, string? path, QueryString query)
     {
         if (path is null || !path.StartsWith("/media/", StringComparison.OrdinalIgnoreCase)
             || !path.EndsWith(".drawio", StringComparison.OrdinalIgnoreCase) || IsBlocked(path))
             return null;
-        return (pathBase ?? "") + Editor + "/editor?url=" + Uri.EscapeDataString((pathBase ?? "") + path);
+        var site = new PathString(pathBase);
+        var source = site.Add(new PathString(path)).ToUriComponent() + query.ToUriComponent();
+        return QueryHelpers.AddQueryString(site.Add(Editor + "/editor").ToUriComponent(), "url", source);
     }
+
+    internal static string ViewerUrl(PathString site, string source, string language) =>
+        QueryHelpers.AddQueryString(site.Add(Editor + "/viewer").ToUriComponent(),
+            new Dictionary<string, string?> { ["url"] = source, ["lang"] = language });
 
     /// <summary>
     /// Whether a configured URL is a path on this site, such as <c>/App_Plugins/MySite/plugin.js</c>. The editor loads these

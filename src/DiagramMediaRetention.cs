@@ -1,6 +1,7 @@
 using Drawio.Compatibility;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Umbraco.Cms.Core.Models;
 
 namespace Drawio;
 
@@ -9,9 +10,22 @@ internal sealed class DiagramMediaRetention(IUmbracoApi cms, IOptionsMonitor<Dra
 {
     internal const string RelationAlias = "aurorisDrawioRetainedMedia";
 
-    internal void Track(IEnumerable<int> pages)
+    internal void Track(IEnumerable<IContent> pages)
     {
-        foreach (var id in pages) Synchronize(id, prune: false);
+        foreach (var page in pages)
+        {
+            var candidates = cms.ResolveMedia(cms.GetMediaKeys(page)).Where(IsDiagramImage).Select(image => image.Id).ToArray();
+            if (candidates.Length == 0 || !cms.RetentionRelationTypeExists) continue;
+            cms.WithTreeWriteScope(() =>
+            {
+                // The notification can arrive after a concurrent deletion or version prune.
+                if (!cms.ContentVersionExists(page.VersionId)) return false;
+                var existing = cms.GetRetentionRelations(page.Id).Select(relation => relation.MediaId);
+                foreach (var id in candidates.Except(existing))
+                    if (cms.GetMedia(id) is { } image && IsDiagramImage(image)) cms.AddRetentionRelation(page.Id, id);
+                return true;
+            });
+        }
     }
 
     internal void Deleting(IEnumerable<int> roots)
@@ -28,7 +42,7 @@ internal sealed class DiagramMediaRetention(IUmbracoApi cms, IOptionsMonitor<Dra
         {
             cms.WithTreeWriteScope(() =>
             {
-                foreach (var id in pages) candidates.UnionWith(Synchronize(id, prune: true));
+                foreach (var id in pages) candidates.UnionWith(Prune(id));
                 foreach (var id in candidates) RemoveUnreferenced(id);
                 return true;
             });
@@ -39,19 +53,15 @@ internal sealed class DiagramMediaRetention(IUmbracoApi cms, IOptionsMonitor<Dra
         }
     }
 
-    internal HashSet<int> Synchronize(int contentId, bool prune)
+    private HashSet<int> Prune(int contentId)
     {
         if (!cms.RetentionRelationTypeExists) return []; // The installation migration has not run yet.
-        return cms.WithTreeWriteScope(() =>
-        {
-            var existing = cms.GetRetentionRelations(contentId);
-            var retained = cms.GetReferencedMedia(contentId).Where(IsDiagramImage).Select(image => image.Id).ToHashSet();
-            var previous = existing.Select(relation => relation.MediaId).ToHashSet();
-            foreach (var id in retained.Except(previous)) cms.AddRetentionRelation(contentId, id);
-            if (prune)
-                foreach (var relation in existing.Where(relation => !retained.Contains(relation.MediaId))) cms.DeleteRetentionRelation(relation.Id);
-            return prune ? previous.Except(retained).ToHashSet() : [];
-        });
+        var existing = cms.GetRetentionRelations(contentId);
+        var retained = cms.GetRetainedMedia(contentId).Where(IsDiagramImage).Select(image => image.Id).ToHashSet();
+        var previous = existing.Select(relation => relation.MediaId).ToHashSet();
+        foreach (var id in retained.Except(previous)) cms.AddRetentionRelation(contentId, id);
+        foreach (var relation in existing.Where(relation => !retained.Contains(relation.MediaId))) cms.DeleteRetentionRelation(relation.Id);
+        return previous.Except(retained).ToHashSet();
     }
 
     private static bool IsDiagramImage(DiagramMedia image) => image.IsImage && IsDiagramFile(image.Path, image.Key);

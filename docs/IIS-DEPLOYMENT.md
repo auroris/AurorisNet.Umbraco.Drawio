@@ -17,8 +17,7 @@ lists the other ways to serve the editor.
    read access to the folder.
 3. Add the `Draw` location below to the site's `web.config`, beside the `location` that holds
    the site's own `system.webServer` section.
-4. Add the URL Rewrite rule below to the `rules` of the site's own `system.webServer`
-   section.
+4. Let Umbraco handle diagram downloads under `/media/`, as described below.
 5. Set `Drawio:WebRoot` to the folder from step 1. With the Selfhosted package installed,
    also set `DrawioBundle` to `false` in the site's project, which leaves the bundled copy
    out of the build.
@@ -62,18 +61,11 @@ hides the servlet folders and source maps of the draw.io source:
 </location>
 ```
 
-The application redirects `/media/…/*.drawio` to the editor. IIS answers some media requests
-before they reach the application, so URL Rewrite needs the same redirect:
-
-```xml
-<rule name="Open draw.io media files in the editor" stopProcessing="true">
-  <match url="^(media/.+\.drawio)$" />
-  <action type="Redirect" url="/draw/editor?url=/{UrlEncode:{R:1}}" redirectType="Found" />
-</rule>
-```
-
-Under an IIS application with a virtual path of its own, such as `/intranet`, put that path
-before both `/draw` and the `url` value: `/intranet/draw/editor?url=/intranet/{UrlEncode:{R:1}}`.
+The site's normal ASP.NET Core handler should receive diagram requests under `/media/`
+after the site's media access checks. This includes `.drawio`, `.xml`, `.svg` and `.png`.
+Umbraco redirects a navigated `.drawio` file to the editor and serves the original file
+when the editor requests `application/xml`. Remove the earlier IIS rule named **Open draw.io
+media files in the editor** on upgrade. It also redirects the editor's raw download.
 
 ## Upgrade
 
@@ -103,5 +95,5 @@ Then check the editor in a browser:
 
 1. Open a page with a diagram and select it. The viewer opens in a new tab.
 2. Open the link to a `.drawio` media file. The editor loads it.
-3. In the browser's network panel, the editor's request to `/draw/proxy?url=media/…`
-   returns 200 with the same header.
+3. In the browser's network panel, check that the editor's request to the original media
+   URL returns the diagram to a visitor who can read that file.

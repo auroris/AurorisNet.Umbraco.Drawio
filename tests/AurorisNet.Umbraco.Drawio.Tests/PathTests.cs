@@ -32,6 +32,8 @@ public sealed class PathTests
     [InlineData("media/abc/diagram.PNG", "abc/diagram.PNG")]
     [InlineData("media/a/b/c.xml", "a/b/c.xml")]
     [InlineData("media/x/y.svg", "x/y.svg")]
+    [InlineData("MEDIA/a/b.png", "a/b.png")]
+    [InlineData("media/a/%C3%A9tage%20A+B.drawio", "a/étage A+B.drawio")]
     public void The_proxy_reads_diagram_files_in_the_media_store(string url, string expected)
     {
         Assert.True(DrawioPaths.TryGetMediaPath(url, out var relative));
@@ -44,7 +46,6 @@ public sealed class PathTests
     [InlineData("https://example.com/media/a.png")]
     [InlineData("//example.com/media/a.png")]
     [InlineData("/media/a/b.png")]
-    [InlineData("Media/a/b.png")]
     [InlineData("media/../appsettings.json")]
     [InlineData("media/a/../../web.png")]
     [InlineData("media/./a.png")]
@@ -72,10 +73,20 @@ public sealed class PathTests
 
     [Theory]
     [InlineData("", "/media/abc/plan.drawio", "/draw/editor?url=%2Fmedia%2Fabc%2Fplan.drawio")]
-    [InlineData("/intranet", "/media/abc/Floor plan.DRAWIO", "/intranet/draw/editor?url=%2Fintranet%2Fmedia%2Fabc%2FFloor%20plan.DRAWIO")]
+    [InlineData("/intranet", "/media/abc/Floor plan.DRAWIO", "/intranet/draw/editor?url=%2Fintranet%2Fmedia%2Fabc%2FFloor%2520plan.DRAWIO")]
     [InlineData(null, "/MEDIA/a/b.drawio", "/draw/editor?url=%2FMEDIA%2Fa%2Fb.drawio")]
     public void A_drawio_media_file_opens_in_the_editor(string? pathBase, string path, string expected)
         => Assert.Equal(expected, DrawioPaths.MediaRedirect(pathBase, path));
+
+    [Fact]
+    public void Viewer_encodes_the_application_path_and_preserves_the_source_query()
+    {
+        const string source = "/teams/Project%20%231/media/plan%20A.png?rnd=123";
+        var viewer = new Uri(new Uri("https://site.example"), DrawioPaths.ViewerUrl(new("/teams/Project #1"), source, "en"));
+        Assert.Equal("/teams/Project%20%231/draw/viewer", viewer.AbsolutePath);
+        Assert.Equal("", viewer.Fragment);
+        Assert.Equal(source, Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(viewer.Query)["url"]);
+    }
 
     [Theory]
     [InlineData("/media/abc/plan.png")]

@@ -18,7 +18,7 @@ internal sealed class TestSite(WebApplication app, string root, PathString pathB
     public string WebRoot { get; } = Path.Combine(root, "draw");
 
     public static async Task<TestSite> StartAsync(IDictionary<string, string?> settings, CancellationToken cancellationToken,
-        PathString pathBase = default, bool hostSetsPathBase = true)
+        PathString pathBase = default, bool hostSetsPathBase = true, Action<IApplicationBuilder>? configurePipeline = null)
     {
         var root = Directory.CreateTempSubdirectory("drawio-test-").FullName;
         Directory.CreateDirectory(Path.Combine(root, "wwwroot"));
@@ -88,6 +88,7 @@ internal sealed class TestSite(WebApplication app, string root, PathString pathB
                 });
                 if (hostSetsPathBase) app.UsePathBase(pathBase);
             }
+            configurePipeline?.Invoke(app);
             app.UseUmbraco().WithMiddleware(u => { u.UseBackOffice(); u.UseWebsite(); })
                 .WithEndpoints(u => { u.UseBackOfficeEndpoints(); u.UseWebsiteEndpoints(); });
             app.MapControllers();

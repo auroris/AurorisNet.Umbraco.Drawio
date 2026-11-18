@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Drawio;
+using Drawio.Compatibility;
 using Drawio.Migrations;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.IO;
@@ -15,6 +16,35 @@ namespace AurorisNet.Umbraco.Drawio.Tests;
 
 public sealed partial class SiteTests
 {
+    private sealed class SaveTrackingApi(IServiceProvider services) : UmbracoApi(services)
+    {
+        public override int MajorVersion { get; } = services.GetRequiredService<IUmbracoApi>().MajorVersion;
+        internal int WriteScopes { get; private set; }
+        protected override IEnumerable<IContent> GetVersions(int contentId) => throw new InvalidOperationException("Save scanned history.");
+        public override T WithTreeWriteScope<T>(Func<T> work)
+        {
+            WriteScopes++;
+            return base.WithTreeWriteScope(work);
+        }
+    }
+
+    [Fact]
+    public async Task Saving_tracks_only_the_saved_version_and_skips_tree_locks_for_ordinary_uploads()
+    {
+        var api = new SaveTrackingApi(Site.Services);
+        var retention = ActivatorUtilities.CreateInstance<DiagramMediaRetention>(Site.Services, api);
+        var page = await DiagramPage("trackCurrentOnly");
+        var content = Site.Services.GetRequiredService<IContentService>();
+        Pick(page, DiagramImage(owned: false));
+        Assert.True(content.Save(page).Success);
+        retention.Track([page]);
+        Assert.Equal(0, api.WriteScopes);
+        Pick(page, DiagramImage());
+        Assert.True(content.Save(page).Success);
+        retention.Track([page]);
+        Assert.Equal(1, api.WriteScopes);
+    }
+
     [Fact]
     public async Task Automatic_cleanup_preserves_protected_history_then_deletes_the_unused_media_and_file()
     {
@@ -126,7 +156,7 @@ public sealed partial class SiteTests
         finally { settings.SupersededImages = previous; }
     }
 
-    private async Task<IContent> DiagramPage(string alias)
+    private async Task<IContent> DiagramPage(string alias, Guid? elementType = null)
     {
         var services = Site.Services;
         var strings = services.GetRequiredService<IShortStringHelper>();
@@ -136,7 +166,7 @@ public sealed partial class SiteTests
             Name = alias + " blocks", EditorUiAlias = "Umb.PropertyEditorUi.BlockList",
             ConfigurationData = new Dictionary<string, object>
             {
-                ["blocks"] = new[] { new { contentElementTypeKey = ImportDiagramElementType.ElementTypeKey } }
+                ["blocks"] = new[] { new { contentElementTypeKey = elementType ?? ImportDiagramElementType.ElementTypeKey } }
             }
         };
         Assert.True((await services.GetRequiredService<IDataTypeService>().CreateAsync(dataType, Constants.Security.SuperUserKey)).Success);
@@ -158,16 +188,19 @@ public sealed partial class SiteTests
         return image;
     }
 
-    private static void Pick(IContent item, IMedia image, bool? openInViewer = null, object[]? link = null)
+    private static void Pick(IContent item, IMedia image, bool? openInViewer = null, object[]? link = null,
+        Guid? legacyType = null, int? legacyAction = null)
     {
         var key = Guid.NewGuid();
         item.SetValue("diagrams", JsonSerializer.Serialize(new
         {
             layout = new Dictionary<string, object> { ["Umbraco.BlockList"] = new[] { new { contentKey = key } } },
-            contentData = new[] { new { key, contentTypeKey = ImportDiagramElementType.ElementTypeKey, values = new object[]
+            contentData = new[] { new { key, contentTypeKey = legacyType ?? ImportDiagramElementType.ElementTypeKey, values = new object[]
             {
                 new { alias = "image", culture = (string?)null, segment = (string?)null, editorAlias = "Umbraco.MediaPicker3", value = new[] { new { key = Guid.NewGuid(), mediaKey = image.Key } } },
-                new { alias = "openInViewer", culture = (string?)null, segment = (string?)null, editorAlias = "Umbraco.TrueFalse", value = openInViewer },
+                legacyType.HasValue
+                    ? (object)new { alias = "clickAction", culture = (string?)null, segment = (string?)null, editorAlias = "Umbraco.Integer", value = legacyAction }
+                    : new { alias = "openInViewer", culture = (string?)null, segment = (string?)null, editorAlias = "Umbraco.TrueFalse", value = openInViewer },
                 new { alias = "link", culture = (string?)null, segment = (string?)null, editorAlias = "Umbraco.MultiUrlPicker", value = link }
             } } },
             settingsData = Array.Empty<object>(), expose = new[] { new { contentKey = key, culture = (string?)null, segment = (string?)null } }

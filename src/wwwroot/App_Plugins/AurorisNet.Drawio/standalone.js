@@ -5,6 +5,9 @@ const frame = document.querySelector('iframe');
 const status = document.querySelector('#status');
 const parameters = new URL(location.href).searchParams;
 const source = parameters.get('url');
+function sourceName() {
+    return source ? decodeURIComponent(new URL(source, location.href).pathname.split('/').pop()) : '';
+}
 let settings, loaded = false, started = false, modified = false;
 function report(error) { status.textContent = error.message || 'The diagram could not be loaded.'; }
 window.addEventListener('beforeunload', event => { if (modified) { event.preventDefault(); event.returnValue = ''; } });
@@ -19,7 +22,7 @@ window.addEventListener('message', async event => {
             started = true;
             if (viewer && !source) throw Error('Supply the diagram file in the url parameter.');
             const diagram = source ? await websiteDiagram(source) : {};
-            post({action:'load', ...diagram, title:source?.split('/').pop() || 'Diagram', autosave:!viewer, noExitBtn:1});
+            post({action:'load', ...diagram, title:sourceName() || 'Diagram', autosave:!viewer, noExitBtn:1});
         }
         if (message.event === 'load') { loaded = true; status.textContent = ''; }
         if (message.event === 'autosave' && !viewer) modified = true;
@@ -27,7 +30,7 @@ window.addEventListener('message', async event => {
             if (typeof message.xml !== 'string') throw Error('The editor returned no diagram.');
             const url = URL.createObjectURL(new Blob([message.xml], {type:'application/xml'}));
             const link = document.createElement('a'); link.href = url;
-            link.download = (source?.split('/').pop()?.replace(/\.[^.]+$/, '') || 'diagram') + '.drawio';
+            link.download = (sourceName().replace(/\.[^.]+$/, '') || 'diagram') + '.drawio';
             link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
             modified = false; post({action:'status', modified:false});
             status.textContent = 'Downloaded the diagram. The website’s source file is unchanged.';

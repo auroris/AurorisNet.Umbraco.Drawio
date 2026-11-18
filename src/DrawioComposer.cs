@@ -1,5 +1,7 @@
 using Drawio.Migrations;
 using Drawio.Compatibility;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -29,6 +31,12 @@ public static class DrawioBuilderExtensions
         if (builder.Services.Any(service => service.ServiceType == typeof(DrawioMarker))) return builder;
         builder.Services.AddSingleton<DrawioMarker>();
         builder.Services.AddOptions<DrawioOptions>().Bind(builder.Config.GetSection(DrawioOptions.Section)).ValidateOnStart();
+        builder.Services.PostConfigure<StaticFileOptions>(options =>
+        {
+            options.ContentTypeProvider ??= new FileExtensionContentTypeProvider();
+            if (options.ContentTypeProvider is FileExtensionContentTypeProvider provider)
+                provider.Mappings.TryAdd(".drawio", "application/xml");
+        });
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<DrawioOptions>, DrawioOptionsValidation>());
         builder.Services.Configure<UmbracoPipelineOptions>(options =>
             options.AddFilter(new UmbracoPipelineFilter("Drawio") { PrePipeline = DrawioHosting.Use }));

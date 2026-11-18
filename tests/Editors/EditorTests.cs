@@ -33,7 +33,9 @@ public sealed class EditorTests
         string EditorPage(string file) => new Uri(site.Address, "draw/editor?lang=en&url=" +
             Uri.EscapeDataString(new Uri(site.Address, file).AbsolutePath)).AbsoluteUri;
         var webRoot = site.Services.GetRequiredService<IWebHostEnvironment>().WebRootPath;
-        await File.WriteAllTextAsync(Path.Combine(webRoot, "sample.drawio"), """
+        Directory.CreateDirectory(Path.Combine(webRoot, "media", "fixture"));
+        const string source = "media/fixture/Floor plan + étage.drawio";
+        await File.WriteAllTextAsync(Path.Combine(webRoot, source), """
             <mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>
             <mxCell id="2" parent="1" vertex="1" value="Editor round trip">
               <mxGeometry as="geometry" x="40" y="40" width="180" height="60"/>
@@ -51,7 +53,7 @@ public sealed class EditorTests
         }
 
         var page = await context.NewPageAsync();
-        var response = await page.RunAndWaitForResponseAsync(() => page.GotoAsync(EditorPage("sample.drawio")),
+        var response = await page.RunAndWaitForResponseAsync(() => page.GotoAsync(EditorPage(source)),
             r => r.Request.IsNavigationRequest && r.Frame.ParentFrame == page.MainFrame);
         Assert.True(response.Ok, $"Loading {response.Url} returned HTTP {response.Status}.");
         var editorUrl = new Uri(response.Url);
@@ -68,7 +70,7 @@ public sealed class EditorTests
         await page.Keyboard.PressAsync("ControlOrMeta+Enter");
 
         var download = await page.RunAndWaitForDownloadAsync(() => page.Keyboard.PressAsync("ControlOrMeta+s"));
-        Assert.Equal("sample.drawio", download.SuggestedFilename);
+        Assert.Equal("Floor plan + étage.drawio", download.SuggestedFilename);
         await download.SaveAsAsync(Path.Combine(webRoot, "saved.drawio"));
         await page.GotoAsync(EditorPage("saved.drawio"));
         await editor.GetByText("Saved from the editor", new() { Exact = true }).First.WaitForAsync();
