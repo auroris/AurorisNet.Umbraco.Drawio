@@ -46,7 +46,7 @@ public static class DrawioScripts
         var script = new StringBuilder(Banner);
         script.Append("window.DRAWIO_PUBLIC_BUILD=true;window.EXPORT_URL=null;window.DRAWIO_BASE_URL=null;window.DRAWIO_VIEWER_URL=null;")
             .Append("window.DRAWIO_LIGHTBOX_URL=null;window.DRAW_MATH_URL='math4/es5';urlParams.sync='manual';")
-            .Append("window.DRAWIO_CONFIG=").Append(Configuration(context)).Append(";\n");
+            .Append("window.DRAWIO_CONFIG=").Append(JsonSerializer.Serialize(Configuration(context))).Append(";\n");
         if (options.Libraries.Count > 0)
             // draw.io fetches a library by absolute URL, so prefix this page's origin to each site path.
             script.Append("window.DRAWIO_CONFIG.libraries.forEach(function(g){g.entries.forEach(function(e){e.libs.forEach(function(l){l.url=location.origin+l.url;});});});\n");
@@ -78,14 +78,14 @@ public static class DrawioScripts
     }
 
     /// <summary>The <c>DRAWIO_CONFIG</c> object, or <c>null</c>, which leaves draw.io's defaults.</summary>
-    internal static string Configuration(DrawioScriptContext context)
+    internal static object? Configuration(DrawioScriptContext context)
     {
         var options = context.Options;
         if (options.Libraries.Count == 0)
-            return string.IsNullOrWhiteSpace(options.DefaultLibraries) ? "null"
-                : JsonSerializer.Serialize(new { defaultLibraries = options.DefaultLibraries.Trim() });
+            return string.IsNullOrWhiteSpace(options.DefaultLibraries) ? null
+                : new { defaultLibraries = options.DefaultLibraries.Trim() };
         var defaults = string.IsNullOrWhiteSpace(options.DefaultLibraries) ? StandardLibraries : options.DefaultLibraries.Trim();
-        return JsonSerializer.Serialize(new
+        return new
         {
             defaultLibraries = string.Join(';', new[] { defaults }.Concat(options.Libraries.Select(l => l.Id))),
             libraries = new[]
@@ -102,6 +102,6 @@ public static class DrawioScripts
                     }),
                 },
             },
-        });
+        };
     }
 }

@@ -6,7 +6,6 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
-using Umbraco.Cms.Core.Notifications;
 using Umbraco.Cms.Web.Common.ApplicationBuilder;
 using Umbraco.Extensions;
 
@@ -42,7 +41,7 @@ public static class DrawioBuilderExtensions
             options.AddFilter(new UmbracoPipelineFilter("Drawio") { PrePipeline = DrawioHosting.Use }));
         builder.Services.AddTransient<DiagramMediaRetention>();
         UmbracoCompatibility.Register(builder);
-        builder.AddNotificationAsyncHandler<UmbracoApplicationStartingNotification, DrawioInstallation>();
+        builder.PackageMigrationPlans().Add<DrawioMigrationPlan>();
         return builder;
     }
 

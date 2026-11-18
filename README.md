@@ -40,8 +40,10 @@ and serves the bundled editor at `/draw/` through Umbraco, including on IIS. The
 install needs no Drawio settings, virtual directory or rewrite rules. A site that builds
 its services by hand can call `builder.AddDrawio()`.
 
-On the first start, Umbraco imports the Diagram element type, media type, data types and the
-diagram upload folder. Add the Diagram block to the Block List or Block Grid where
+Umbraco's package migration installs the Diagram element type, media type, data types and
+upload folder. Sites using attended package migrations can run it from **Packages**.
+Sites that disable schema and content migrations can deploy the definitions through their
+usual deployment process. Add the Diagram block to the Block List or Block Grid where
 authors should use it.
 
 With the base package, browsers need access to diagrams.net, and a Content Security Policy
@@ -56,7 +58,7 @@ that names each invalid value.
 | Setting | Default | What it does |
 |---|---|---|
 | `WebRoot` | empty | To serve your own copy of draw.io at `/draw/`, set this to its web app folder. Use an absolute path or one relative to the site's content root. |
-| `RedirectMediaFiles` | `true` | Redirects a request for `/media/…/*.drawio` to `/draw/editor?url=…`, so a link to the file opens it in the editor. |
+| `RedirectMediaFiles` | `true` | Opens links to `.drawio` files under Umbraco's configured media path in the editor. The default media path is `/media/`. |
 | `SupersededImages` | `Delete` | What happens to a diagram's media once nothing refers to it: `Delete`, `RecycleBin` or `Keep`, as **Media retention** below describes. |
 | `DefaultLibraries` | empty | The shape libraries the editor opens, separated by semicolons, such as `general;uml;flowchart`. Empty keeps draw.io's own set. |
 | `LibraryGroup` | `Extra shapes` | The sidebar heading for `Libraries`. |
@@ -134,7 +136,12 @@ the original media URL through the website's usual media handler, including from
 storage exposed through that handler. For a `.drawio` file it sends `Accept: application/xml`. Opening
 that file's link in a browser launches the editor. The legacy `/draw/proxy` endpoint
 redirects clients to the media URL for a bounded download. Its `base64=1` option selects a
-Base64 response.
+Base64 response. The redirect uses Umbraco's configured media path under the site's application path.
+
+A storage provider can keep files in S3 or another remote store and serve them through the
+site's media URL. For a direct CDN URL, the published image can display and the backoffice can
+read the source if the CDN permits the browser's cross-origin request. The standalone editor
+and viewer require a same-origin source URL, including when a block uses **Open in Viewer**.
 
 The examples use Umbraco's default installation at the site's URL root.
 
@@ -314,13 +321,9 @@ The full test matrix is the test command run once for each release in `UmbracoRe
 `Directory.Build.props`. It runs on a developer's machine. The workflows test one release.
 The workflows also turn build warnings into errors, so keep the build free of warnings.
 
-The calls that differ between Umbraco major versions sit behind adapters. On the server,
-`src/Compatibility/IUmbracoApi.cs` has an implementation for each major version, and the
-running version selects one. In the backoffice,
-`src/wwwroot/App_Plugins/AurorisNet.Drawio/compatibility/umbraco-media-api.js` does the same
-for media calls. A new major version
-needs an adapter of its own in both places: the package refuses to run on a major version
-it has none for.
+The server selects the Umbraco 17 or 18 implementation of `src/Compatibility/IUmbracoApi.cs`
+for content-history access. Both versions use the same backoffice media adapter. The server
+and backoffice each check the supported major versions.
 
 The editor tests install the packed NuGet files in two separate Umbraco sites and require
 Google Chrome. The base-package test uses the live editor at `https://embed.diagrams.net/`

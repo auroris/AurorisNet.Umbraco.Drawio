@@ -91,14 +91,7 @@ class UmbracoMediaApi {
     }
 }
 
-// These versions share the media calls we use. Version-specific changes belong in their respective adapters.
-export class Umbraco17MediaApi extends UmbracoMediaApi {}
-export class Umbraco18MediaApi extends UmbracoMediaApi {}
-
 export function createMediaApi(major, host, services, diagramFolderId) {
-    switch (major) {
-        case 17: return new Umbraco17MediaApi(host, services, diagramFolderId);
-        case 18: return new Umbraco18MediaApi(host, services, diagramFolderId);
-        default: throw Error(`draw.io has no tested media adapter for Umbraco ${major}.`);
-    }
+    if (major !== 17 && major !== 18) throw Error(`draw.io has no tested media adapter for Umbraco ${major}.`);
+    return new UmbracoMediaApi(host, services, diagramFolderId);
 }

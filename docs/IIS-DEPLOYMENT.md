@@ -22,7 +22,7 @@ lists the other ways to serve the editor.
    read access to the folder.
 3. Add the `Draw` location below to the site's `web.config`, beside the `location` that holds
    the site's own `system.webServer` section.
-4. Let Umbraco handle diagram downloads under `/media/`, as described below.
+4. Let Umbraco handle diagram downloads under the site’s configured media path, as described below.
 5. Set `Drawio:WebRoot` to the folder from step 1. With the Selfhosted package installed,
    also set `DrawioBundle` to `false` in the site's project, which leaves the bundled copy
    out of the build.
@@ -66,8 +66,9 @@ hides the servlet folders and source maps of the draw.io source:
 </location>
 ```
 
-The site's normal ASP.NET Core handler should receive diagram requests under `/media/`
-after the site's media access checks. This includes `.drawio`, `.xml`, `.svg` and `.png`.
+The site's normal ASP.NET Core handler should receive diagram requests under Umbraco's
+configured media path (by default, `/media/`) after the site's media access checks. This
+includes `.drawio`, `.xml`, `.svg` and `.png`.
 Umbraco redirects a navigated `.drawio` file to the editor and serves the original file
 when the editor requests `application/xml`. Remove the earlier IIS rule named **Open draw.io
 media files in the editor** on upgrade. It also redirects the editor's raw download.

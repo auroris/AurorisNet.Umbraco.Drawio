@@ -88,7 +88,7 @@ public sealed class SettingsTests
     public void An_empty_default_library_list_keeps_draw_io_own_set(string value)
     {
         var options = Bind(new() { ["Drawio:DefaultLibraries"] = value });
-        Assert.Equal("null", DrawioScripts.Configuration(new DrawioScriptContext("", options)));
+        Assert.Null(DrawioScripts.Configuration(new DrawioScriptContext("", options)));
     }
 
     [Fact]

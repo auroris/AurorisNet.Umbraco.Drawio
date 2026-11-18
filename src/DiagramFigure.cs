@@ -39,16 +39,16 @@ public sealed record DiagramFigure(string? ImageUrl, string AltText, string? Cap
     public static DiagramFigure From(IPublishedElement element, HttpContext context)
     {
         var diagram = context.RequestServices.GetRequiredService<IUmbracoApi>().ReadDiagram(element);
-        var viewer = diagram.Action == DiagramClickAction.Viewer && !string.IsNullOrEmpty(diagram.OriginalUrl);
-        var href = viewer
-            ? DrawioPaths.ViewerUrl(context.Request.PathBase, diagram.OriginalUrl ?? "", CultureInfo.CurrentUICulture.TwoLetterISOLanguageName)
-            : diagram.Action == DiagramClickAction.Link ? diagram.LinkUrl : null;
+        var href = diagram.LinkUrl;
+        if (diagram.OpenInViewer)
+            href = string.IsNullOrEmpty(diagram.OriginalUrl) ? null
+                : DrawioPaths.ViewerUrl(context.Request.PathBase, diagram.OriginalUrl, CultureInfo.CurrentUICulture.TwoLetterISOLanguageName);
         return new(diagram.ImageUrl,
             string.IsNullOrWhiteSpace(diagram.AltText) ? diagram.Caption ?? diagram.Label : diagram.AltText,
             string.IsNullOrWhiteSpace(diagram.Caption) ? null : diagram.Caption,
             IsSafeLink(href) ? href : null,
-            viewer ? "_blank" : diagram.LinkTarget,
-            viewer ? diagram.Label : diagram.LinkName)
+            diagram.OpenInViewer ? "_blank" : diagram.LinkTarget,
+            diagram.OpenInViewer ? diagram.Label : diagram.LinkName)
         {
             Map = DiagramMap.Read(diagram.Map),
             InlineSvg = diagram.InlineSvg,

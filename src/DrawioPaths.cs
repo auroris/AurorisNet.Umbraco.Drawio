@@ -49,11 +49,13 @@ public static class DrawioPaths
     /// <param name="url">The parameter, as draw.io sends it.</param>
     /// <param name="relative">The path inside the media file system, without the <c>media/</c> prefix.</param>
     public static bool TryGetMediaPath(string? url, out string relative)
+        => TryGetMediaPath(url, "/media/", out relative);
+
+    internal static bool TryGetMediaPath(string? url, string mediaPrefix, out string relative)
     {
         relative = "";
-        if (url is null || !url.StartsWith("media/", StringComparison.OrdinalIgnoreCase) || url.Length > 1024)
-            return false;
-        var segments = url["media/".Length..].Split('/');
+        if (string.IsNullOrEmpty(url) || url.Length > 1024) return false;
+        var segments = url.Split('/');
         for (var i = 0; i < segments.Length; i++)
         {
             var segment = Uri.UnescapeDataString(segments[i]);
@@ -62,7 +64,11 @@ public static class DrawioPaths
             segments[i] = segment;
         }
         if (!IsDiagramExtension(segments[^1])) return false;
-        relative = string.Join('/', segments);
+        var path = "/" + string.Join('/', segments);
+        // Older draw.io links use media/ as the logical root even on sites with a custom media path.
+        var prefix = path.StartsWith(mediaPrefix, StringComparison.OrdinalIgnoreCase) ? mediaPrefix : "/media/";
+        if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return false;
+        relative = path[prefix.Length..];
         return true;
     }
 
@@ -72,15 +78,14 @@ public static class DrawioPaths
     /// </summary>
     /// <param name="pathBase">The site's path base, such as an IIS application's virtual path.</param>
     /// <param name="path">The request path below the path base.</param>
-    public static string? MediaRedirect(string? pathBase, string? path) => MediaRedirect(pathBase, path, QueryString.Empty);
+    public static string? MediaRedirect(string? pathBase, string? path) =>
+        path?.StartsWith("/media/", StringComparison.OrdinalIgnoreCase) == true
+            ? MediaFileRedirect(new PathString(pathBase), new PathString(path), QueryString.Empty) : null;
 
-    internal static string? MediaRedirect(string? pathBase, string? path, QueryString query)
+    internal static string? MediaFileRedirect(PathString site, PathString path, QueryString query)
     {
-        if (path is null || !path.StartsWith("/media/", StringComparison.OrdinalIgnoreCase)
-            || !path.EndsWith(".drawio", StringComparison.OrdinalIgnoreCase) || IsBlocked(path))
-            return null;
-        var site = new PathString(pathBase);
-        var source = site.Add(new PathString(path)).ToUriComponent() + query.ToUriComponent();
+        if (path.Value?.EndsWith(".drawio", StringComparison.OrdinalIgnoreCase) != true || IsBlocked(path.Value)) return null;
+        var source = site.Add(path).ToUriComponent() + query.ToUriComponent();
         return QueryHelpers.AddQueryString(site.Add(Editor + "/editor").ToUriComponent(), "url", source);
     }
 

@@ -1,9 +1,9 @@
 using Drawio;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Models;
-using Umbraco.Cms.Core.Notifications;
 using Umbraco.Cms.Core.Scoping;
 using Umbraco.Cms.Core.Services;
+using Umbraco.Cms.Infrastructure.Install;
 
 namespace AurorisNet.Umbraco.Drawio.Tests;
 
@@ -65,8 +65,8 @@ public sealed partial class SiteTests
         Assert.True(media.Save(other).Success);
         Assert.Equal("diagrams", other.Name);
 
-        var install = ActivatorUtilities.CreateInstance<DrawioInstallation>(Site.Services);
-        await install.HandleAsync(new UmbracoApplicationStartingNotification(RuntimeLevel.Run, true), Cancel);
+        var runner = Site.Services.GetRequiredService<PackageMigrationRunner>();
+        Assert.Empty(await runner.RunPackageMigrationsIfPendingAsync(DrawioMigrationPlan.DisplayName));
         Assert.DoesNotContain(media.GetRootMedia(), item => item.Key == DiagramMediaFolder.Key);
         Assert.True(media.Delete(other).Success);
     }

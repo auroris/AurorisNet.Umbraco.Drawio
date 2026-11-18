@@ -93,7 +93,7 @@ internal abstract class UmbracoApi(IServiceProvider services) : IUmbracoApi
         if (relations.GetById(relationId) is { } relation) relations.Delete(relation);
     }
 
-    public virtual bool HasMediaReferences(int mediaId) => relations.GetByChildId(mediaId).Any();
+    public virtual bool HasMediaReferences(int mediaId) => relations.GetByParentOrChildId(mediaId).Any();
     public virtual DiagramMedia? GetMedia(int mediaId) => media.GetById(mediaId) is { } item ? ToMedia(item) : null;
     public virtual bool DeleteMedia(int mediaId) => media.GetById(mediaId) is { } item && media.Delete(item).Success;
     public virtual bool RecycleMedia(int mediaId)
@@ -103,16 +103,12 @@ internal abstract class UmbracoApi(IServiceProvider services) : IUmbracoApi
     {
         var image = element.Value<MediaWithCrops>("image");
         var link = element.Value<Link>("link");
-        var legacy = !element.HasProperty("openInViewer") && element.HasProperty("clickAction");
-        var action = legacy
-            ? (element.HasValue("clickAction") ? (DiagramClickAction)element.Value<int>("clickAction") : DiagramClickAction.None)
-            : element.Value<bool>("openInViewer") ? DiagramClickAction.Viewer : DiagramClickAction.Link;
         var content = image?.Content;
         var inlineSvg = element.Value<bool>("format");
         var imageProperty = inlineSvg ? "drawioSvg" : Constants.Conventions.Media.File;
         var imageUrl = content?.GetCropUrl(propertyAlias: imageProperty, cacheBuster: true);
         return new(imageUrl, inlineSvg, content?.MediaUrl(propertyAlias: "drawioSource"), content?.Value<string>("drawioMap"),
-            element.Value<string>("caption"), element.Value<string>("altText"), element.Value<string>("cssClass"), action,
+            element.Value<string>("caption"), element.Value<string>("altText"), element.Value<string>("cssClass"), element.Value<bool>("openInViewer"),
             link?.Url, link?.Target, link?.Name,
             services.GetRequiredService<UmbracoHelper>().GetDictionaryValueOrDefault("Drawio.OpenDiagram", "Open diagram"));
     }

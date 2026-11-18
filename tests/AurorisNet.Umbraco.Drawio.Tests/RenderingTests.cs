@@ -4,7 +4,6 @@ using Drawio;
 using Microsoft.AspNetCore.Mvc;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.IO;
-using Umbraco.Cms.Core.Models;
 using Umbraco.Cms.Core.Models.Blocks;
 using Umbraco.Cms.Core.PropertyEditors;
 using Umbraco.Cms.Core.Services;
@@ -54,35 +53,6 @@ public sealed partial class SiteTests
         Assert.Equal(before.AbsolutePath, after.AbsolutePath);
         Assert.NotEqual(before.Query, after.Query);
         Assert.Equal(replacement, await Http.GetByteArrayAsync(after, Cancel));
-    }
-
-    [Fact]
-    public async Task Legacy_blocks_keep_each_click_action_with_a_saved_destination()
-    {
-        var strings = Site.Services.GetRequiredService<IShortStringHelper>();
-        var types = Site.Services.GetRequiredService<IDataTypeService>();
-        var legacy = new ContentType(strings, Constants.System.Root) { Alias = "legacyDiagram", Name = "Legacy Diagram", IsElement = true };
-        var integer = (await types.GetByEditorAliasAsync("Umbraco.Integer")).First();
-        var imageType = await types.GetAsync(DrawioInstallation.DataTypeKey);
-        var linkType = await types.GetAsync(new Guid("fa7f0a64-4d45-49b6-9d8c-7ab98e9bf391"));
-        legacy.AddPropertyType(new PropertyType(strings, integer, "clickAction") { Name = "Click action" });
-        legacy.AddPropertyType(new PropertyType(strings, imageType!, "image") { Name = "Image" });
-        legacy.AddPropertyType(new PropertyType(strings, linkType!, "link") { Name = "Link" });
-        Assert.True((await Site.Services.GetRequiredService<IContentTypeService>().CreateAsync(legacy, Constants.Security.SuperUserKey)).Success);
-        var page = await DiagramPage("renderLegacy", legacy.Key);
-        var image = DiagramImage();
-        var content = Site.Services.GetRequiredService<IContentService>();
-        foreach (int? action in new int?[] { 0, 1, 2, null })
-        {
-            Pick(page, image, link: [new { name = "Original link", url = "/original", target = "" }], legacyType: legacy.Key, legacyAction: action);
-            Assert.True(content.Save(page).Success);
-            Assert.True(content.Publish(page, ["*"]).Success);
-            var html = await Http.GetStringAsync($"/test/diagram/{page.Id}", Cancel);
-            Assert.Contains("<img ", html);
-            Assert.Equal(action == 0, html.Contains("/draw/viewer?url="));
-            Assert.Equal(action == 1, html.Contains("href=\"/original\""));
-            Assert.Equal(action is 0 or 1, html.Contains("<a "));
-        }
     }
 
     [Fact]

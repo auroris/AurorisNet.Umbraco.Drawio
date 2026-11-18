@@ -47,14 +47,14 @@ public sealed class ScriptTests
             DefaultLibraries = "general;flowchart",
             Libraries = [new() { Id = "a", Title = "A", Url = "/shapes/a.xml" }, new() { Id = "b", Title = "B", Url = "/shapes/b.xml" }],
         };
-        using var config = JsonDocument.Parse(DrawioScripts.Configuration(new DrawioScriptContext("/intranet", options)));
-        Assert.Equal("general;flowchart;a;b", config.RootElement.GetProperty("defaultLibraries").GetString());
-        var group = config.RootElement.GetProperty("libraries")[0];
+        var config = JsonSerializer.SerializeToElement(DrawioScripts.Configuration(new DrawioScriptContext("/intranet", options)));
+        Assert.Equal("general;flowchart;a;b", config.GetProperty("defaultLibraries").GetString());
+        var group = config.GetProperty("libraries")[0];
         Assert.Equal("Extra shapes", group.GetProperty("title").GetProperty("main").GetString());
         Assert.Equal(["/intranet/shapes/a.xml", "/intranet/shapes/b.xml"],
             group.GetProperty("entries").EnumerateArray().Select(e => e.GetProperty("libs")[0].GetProperty("url").GetString()));
         Assert.Equal("""{"defaultLibraries":"general;flowchart"}""",
-            DrawioScripts.Configuration(new DrawioScriptContext("", new DrawioOptions { DefaultLibraries = " general;flowchart " })));
+            JsonSerializer.Serialize(DrawioScripts.Configuration(new DrawioScriptContext("", new DrawioOptions { DefaultLibraries = " general;flowchart " }))));
     }
 
     /// <summary>A configured plugin is registered and loaded once the editor's code is ready, and plugins=0 or offline=1 still turn it off.</summary>

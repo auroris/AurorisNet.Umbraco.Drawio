@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -9,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Drawio.Compatibility;
+using Umbraco.Cms.Core.Configuration.Models;
 
 namespace Drawio;
 
@@ -32,9 +32,13 @@ internal static class DrawioHosting
             services.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(DrawioHosting).FullName!)
                 .LogWarning("The draw.io folder {Folder} named by Drawio:WebRoot does not exist. /draw/ answers 503 until it does.", root);
 
+        // Request.Path is relative to the application. PathBase is added when building public URLs.
+        var mediaRoot = services.GetRequiredService<IOptions<GlobalSettings>>().Value.UmbracoMediaPath.TrimStart('~', '/').TrimEnd('/');
+        var mediaPrefix = mediaRoot.Length == 0 ? "/" : "/" + mediaRoot + "/";
+
         app.Use(async (context, next) =>
         {
-            if (IsRead(context) && context.Request.Path.StartsWithSegments("/media", StringComparison.OrdinalIgnoreCase))
+            if (IsRead(context) && context.Request.Path.Value?.StartsWith(mediaPrefix, StringComparison.OrdinalIgnoreCase) == true)
             {
                 var format = context.Request.Query["drawio"].ToString();
                 if (format is "raw" or "base64" && DrawioPaths.IsDiagramExtension(context.Request.Path.Value))
@@ -42,8 +46,8 @@ internal static class DrawioHosting
                     await DrawioMediaResponse.Serve(context, next, format == "base64");
                     return;
                 }
-                if (options.RedirectMediaFiles && DrawioPaths.MediaRedirect(context.Request.PathBase.Value,
-                    context.Request.Path.Value, context.Request.QueryString) is { } target)
+                if (options.RedirectMediaFiles && DrawioPaths.MediaFileRedirect(context.Request.PathBase,
+                    context.Request.Path, context.Request.QueryString) is { } target)
                 {
                     context.Response.Headers.AppendCommaSeparatedValues("Vary", "Accept");
                     // The editor requests XML explicitly. Navigating to the same URL still opens the editor page.
@@ -87,7 +91,7 @@ internal static class DrawioHosting
                 }
                 if (path.Equals("/proxy", StringComparison.OrdinalIgnoreCase))
                 {
-                    RedirectToMedia(context);
+                    RedirectToMedia(context, mediaPrefix);
                     return;
                 }
                 if (path.Equals("/settings", StringComparison.OrdinalIgnoreCase))
@@ -98,7 +102,7 @@ internal static class DrawioHosting
                         editorUrl = options.IsSelfHosted ? context.Request.PathBase.ToUriComponent() + "/" : "https://embed.diagrams.net/",
                         umbracoMajor = context.RequestServices.GetRequiredService<IUmbracoApi>().MajorVersion,
                         diagramFolderId = DiagramMediaFolder.Key,
-                        configuration = JsonSerializer.Deserialize<JsonElement>(DrawioScripts.Configuration(new(SitePath(context), options)))
+                        configuration = DrawioScripts.Configuration(ScriptContext(context))
                     }, context.RequestAborted);
                     return;
                 }
@@ -153,11 +157,13 @@ internal static class DrawioHosting
             """, context.RequestAborted);
     }
 
+    private static DrawioScriptContext ScriptContext(HttpContext context) =>
+        new(SitePath(context), context.RequestServices.GetRequiredService<IOptionsSnapshot<DrawioOptions>>().Value);
+
     private static async Task ConfigScript(HttpContext context, bool pre)
     {
-        var options = context.RequestServices.GetRequiredService<IOptionsSnapshot<DrawioOptions>>().Value;
         var contributors = context.RequestServices.GetServices<IDrawioScriptContributor>();
-        var scriptContext = new DrawioScriptContext(SitePath(context), options);
+        var scriptContext = ScriptContext(context);
         var script = pre ? DrawioScripts.PreConfig(scriptContext, contributors) : DrawioScripts.PostConfig(scriptContext, contributors);
         context.Response.ContentType = "text/javascript; charset=utf-8";
         context.Response.Headers.CacheControl = "no-cache";
@@ -180,14 +186,14 @@ internal static class DrawioHosting
     /// <summary>
     /// Directs draw.io's legacy proxy requests to the canonical media URL for authorization and delivery.
     /// </summary>
-    private static void RedirectToMedia(HttpContext context)
+    private static void RedirectToMedia(HttpContext context, string mediaPrefix)
     {
-        if (!DrawioPaths.TryGetMediaPath(context.Request.Query["url"].ToString(), out var relative))
+        if (!DrawioPaths.TryGetMediaPath(context.Request.Query["url"].ToString(), mediaPrefix, out var relative))
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             return;
         }
-        var mediaPath = new PathString("/media/" + relative).ToUriComponent();
+        var mediaPath = new PathString(mediaPrefix + relative).ToUriComponent();
         var format = context.Request.Query["base64"] == "1" ? "base64" : "raw";
         context.Response.Redirect(SitePath(context) + mediaPath + QueryString.Create("drawio", format), false, true);
     }

@@ -29,4 +29,4 @@ internal interface IUmbracoApi
 internal sealed record DiagramRelation(int Id, int MediaId);
 internal sealed record DiagramMedia(int Id, Guid Key, string? Path, bool IsDiagram);
 internal sealed record DiagramPresentation(string? ImageUrl, bool InlineSvg, string? OriginalUrl, string? Map, string? Caption, string? AltText, string? CssClass,
-    DiagramClickAction Action, string? LinkUrl, string? LinkTarget, string? LinkName, string Label);
+    bool OpenInViewer, string? LinkUrl, string? LinkTarget, string? LinkName, string Label);
