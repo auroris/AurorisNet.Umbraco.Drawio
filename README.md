@@ -344,10 +344,10 @@ commit in `THIRD-PARTY-NOTICES.md`.
 
 ## Releases
 
-The package follows Umbraco. Each day, `umbraco-releases.yml` looks on nuget.org for new
+The package follows Umbraco. Each week, `umbraco-releases.yml` looks on nuget.org for new
 Umbraco releases and tests the package on each one. A release that passes is committed to
 `UmbracoReleases` in `Directory.Build.props`, which also rewrites the ranges under
-**Supported versions**, and `release.yml` then publishes a new version of both packages. A
+**Supported versions**, and `weekly-release.yml` then publishes a new version of both packages. A
 release that fails gets an issue.
 
 Versions are numbered MAJOR.MINOR.PATCH, and both packages share one version. A new Umbraco
