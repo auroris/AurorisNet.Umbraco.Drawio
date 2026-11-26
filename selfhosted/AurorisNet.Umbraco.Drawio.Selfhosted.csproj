@@ -2,9 +2,10 @@
   <PropertyGroup>
     <PackageId>AurorisNet.Umbraco.Drawio.Selfhosted</PackageId>
     <AssemblyName>Drawio.Selfhosted</AssemblyName>
+    <Title>draw.io (Self-Hosted)</Title>
     <Version>0.0.0-dev</Version>
     <Authors>Auroris</Authors>
-    <Description>Bundles the draw.io web app for Umbraco 17 and 18 on .NET 10 and automatically configures AurorisNet.Umbraco.Drawio to use it locally, including the editor, backoffice integration and viewer.</Description>
+    <Description>Self-hosted draw.io for Umbraco 17 and 18. Bundles the draw.io web app locally and automatically installs AurorisNet.Umbraco.Drawio—install this instead of the base package for offline use.</Description>
     <PackageTags>umbraco;umbraco-marketplace;drawio;diagrams.net;offline;selfhosted</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -19,7 +20,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../src/AurorisNet.Umbraco.Drawio.csproj" />
-    <None Include="../README.md;../LICENSE;../THIRD-PARTY-NOTICES.md;../docs/images/icon.png" Pack="true" PackagePath="/" />
+    <None Include="README.md;../LICENSE;../THIRD-PARTY-NOTICES.md;../docs/images/icon.png" Pack="true" PackagePath="/" />
     <None Include="build/AurorisNet.Umbraco.Drawio.Selfhosted.targets" Pack="true" PackagePath="build/;buildTransitive/" />
     <None Include="$(DrawioWebApp)**" Exclude="$(DrawioWebApp)WEB-INF\**;$(DrawioWebApp)META-INF\**;$(DrawioWebApp)**\*.map"
           Link="DrawioDistribution\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"

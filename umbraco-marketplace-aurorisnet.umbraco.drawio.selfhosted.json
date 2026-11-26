@@ -1,0 +1,16 @@
+{
+  "$schema": "https://marketplace.umbraco.com/umbraco-marketplace-schema.json",
+  "Title": "draw.io (Self-Hosted)",
+  "Description": "Self-hosted draw.io for Umbraco 17 and 18. Bundles the draw.io web app locally and automatically installs AurorisNet.Umbraco.Drawio—install this instead of the base package for offline use.",
+  "Category": "Editor Tools",
+  "LicenseTypes": ["Free"],
+  "PackageType": "Package",
+  "DocumentationUrl": "https://github.com/auroris/AurorisNet.Umbraco.Drawio/blob/main/selfhosted/README.md",
+  "IssueTrackerUrl": "https://github.com/auroris/AurorisNet.Umbraco.Drawio/issues",
+  "RelatedPackages": [
+    {
+      "PackageId": "AurorisNet.Umbraco.Drawio",
+      "Description": "Base package using hosted diagrams.net (included automatically by this package)."
+    }
+  ]
+}

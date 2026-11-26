@@ -1,8 +1,16 @@
 {
   "$schema": "https://marketplace.umbraco.com/umbraco-marketplace-schema.json",
+  "Title": "draw.io",
+  "Description": "Adds draw.io diagrams to Umbraco 17 and 18 (Block List/Grid block, standalone editor, and viewer) using hosted diagrams.net. Install AurorisNet.Umbraco.Drawio.Selfhosted instead to bundle the editor locally.",
   "Category": "Editor Tools",
   "LicenseTypes": ["Free"],
   "PackageType": "Package",
   "DocumentationUrl": "https://github.com/auroris/AurorisNet.Umbraco.Drawio#readme",
-  "IssueTrackerUrl": "https://github.com/auroris/AurorisNet.Umbraco.Drawio/issues"
+  "IssueTrackerUrl": "https://github.com/auroris/AurorisNet.Umbraco.Drawio/issues",
+  "RelatedPackages": [
+    {
+      "PackageId": "AurorisNet.Umbraco.Drawio.Selfhosted",
+      "Description": "Self-hosted offline variant that bundles draw.io locally and includes this package automatically."
+    }
+  ]
 }

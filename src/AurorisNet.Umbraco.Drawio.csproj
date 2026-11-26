@@ -3,11 +3,11 @@
     <PackageId>AurorisNet.Umbraco.Drawio</PackageId>
     <AssemblyName>Drawio</AssemblyName>
     <RootNamespace>Drawio</RootNamespace>
-    <Title>draw.io for Umbraco</Title>
+    <Title>draw.io</Title>
     <!-- Local builds use 0.0.0-dev; the release workflow supplies the published version. -->
     <Version>0.0.0-dev</Version>
     <Authors>Auroris</Authors>
-    <Description>Integrates diagrams.net with Umbraco 17 and 18 on .NET 10: a standalone editor, backoffice diagram blocks, a read-only viewer, and media retention following content history. Uses hosted diagrams.net by default; add AurorisNet.Umbraco.Drawio.Selfhosted for an offline editor.</Description>
+    <Description>Adds draw.io diagrams to Umbraco 17 and 18 (Block List/Grid block, standalone editor, and viewer) using hosted diagrams.net. Install AurorisNet.Umbraco.Drawio.Selfhosted instead for an offline self-hosted editor.</Description>
     <PackageTags>umbraco;umbraco-marketplace;drawio;diagrams.net;diagram;backoffice</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
